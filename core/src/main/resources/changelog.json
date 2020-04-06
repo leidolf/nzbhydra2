@@ -1,4 +1,20 @@
 [ {
+  "version" : "v2.17.5",
+  "date" : "2020-04-05",
+  "changes" : [ {
+    "type" : "fix",
+    "text" : "Fix copy & paste error introduced with last version."
+  } ],
+  "final" : true
+}, {
+  "version" : "v2.17.4",
+  "date" : "2020-04-05",
+  "changes" : [ {
+    "type" : "fix",
+    "text" : "Min and max size were not filled on page load with a custom default category was configured."
+  } ],
+  "final" : true
+}, {
   "version" : "v2.17.3",
   "date" : "2020-04-01",
   "changes" : [ {
