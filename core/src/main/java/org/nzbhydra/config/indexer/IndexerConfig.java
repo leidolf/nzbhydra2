@@ -1,5 +1,5 @@
 /*
- *  (C) Copyright 2017 TheOtherP (theotherp@gmx.de)
+ *  (C) Copyright 2017 TheOtherP (theotherp@posteo.net)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -19,6 +19,10 @@ package org.nzbhydra.config.indexer;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonFormat.Shape;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.datatype.jsr310.deser.LocalDateDeserializer;
+import com.fasterxml.jackson.datatype.jsr310.ser.LocalDateSerializer;
 import com.google.common.base.Objects;
 import com.google.common.base.Strings;
 import lombok.Data;
@@ -33,6 +37,7 @@ import org.nzbhydra.searching.IndexerForSearchSelector;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -55,6 +60,7 @@ public class IndexerConfig extends ValidatingConfig<IndexerConfig> {
     @JsonFormat(shape = Shape.STRING)
     private BackendType backend = BackendType.NEWZNAB;
     private IndexerCategoryConfig categoryMapping = new IndexerCategoryConfig();
+    private String color;
     private boolean configComplete = true;
     private List<String> enabledCategories = new ArrayList<>();
     private Integer downloadLimit = null;
@@ -71,6 +77,7 @@ public class IndexerConfig extends ValidatingConfig<IndexerConfig> {
     private Long disabledUntil = null;
     private int disabledLevel;
     private Integer loadLimitOnRandom = null;
+    private Integer minSeeders;
     private String name;
     @SensitiveData
     private String password = null;
@@ -86,6 +93,10 @@ public class IndexerConfig extends ValidatingConfig<IndexerConfig> {
     @SensitiveData
     private String username = null;
     private String userAgent = null;
+    @JsonDeserialize(using = LocalDateDeserializer.class)
+    @JsonSerialize(using = LocalDateSerializer.class)
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
+    private LocalDate vipExpirationDate;
 
     public Optional<Integer> getHitLimit() {
         return Optional.ofNullable(hitLimit);
@@ -127,33 +138,6 @@ public class IndexerConfig extends ValidatingConfig<IndexerConfig> {
         return Optional.ofNullable(Strings.emptyToNull(userAgent));
     }
 
-    public void setState(State state) {
-        this.state = state;
-    }
-
-    public void setDisabledUntil(Long disabledUntil) {
-        this.disabledUntil = disabledUntil;
-        //When the config is written from YAML or from the web the setters are called in any order
-        if (state == State.ENABLED || state == State.DISABLED_USER) {
-            this.disabledUntil = null;
-        }
-    }
-
-    public void setDisabledLevel(int disabledLevel) {
-        this.disabledLevel = disabledLevel;
-        //When the config is written from YAML or from the web the setters are called in any order
-        if (state == State.ENABLED || state == State.DISABLED_USER) {
-            this.disabledLevel = 0;
-        }
-    }
-
-    public void setLastError(String lastError) {
-        this.lastError = lastError;
-        //When the config is written from YAML or from the web the setters are called in any order
-        if (state == State.ENABLED || state == State.DISABLED_USER) {
-            this.lastError = null;
-        }
-    }
 
     @JsonIgnore
     public boolean isEligibleForInternalSearch() {
@@ -205,7 +189,12 @@ public class IndexerConfig extends ValidatingConfig<IndexerConfig> {
     }
 
     @Override
-    public IndexerConfig prepareForSaving() {
+    public IndexerConfig prepareForSaving(BaseConfig oldBaseConfig) {
+        if (state == State.ENABLED || state == State.DISABLED_USER) {
+            this.disabledUntil = null;
+            this.disabledLevel = 0;
+            this.lastError = null;
+        }
         return this;
     }
 
@@ -217,5 +206,12 @@ public class IndexerConfig extends ValidatingConfig<IndexerConfig> {
     @Override
     public IndexerConfig initializeNewConfig() {
         return this;
+    }
+
+    public static boolean isIndexerEquals(IndexerConfig a, IndexerConfig b) {
+        return java.util.Objects.equals(b.getHost(), a.getHost())
+                && java.util.Objects.equals(b.getApiKey(), a.getApiKey())
+                && java.util.Objects.equals(a.getSearchModuleType(), b.getSearchModuleType()) //Animetosho (and others) may support newznab and torznab and may be added once for each type
+                ;
     }
 }

@@ -17,8 +17,10 @@ import org.nzbhydra.indexers.exceptions.IndexerProgramErrorException;
 import org.nzbhydra.indexers.exceptions.IndexerSearchAbortedException;
 import org.nzbhydra.indexers.status.IndexerLimit;
 import org.nzbhydra.indexers.status.IndexerLimitRepository;
+import org.nzbhydra.logging.LoggingMarkers;
 import org.nzbhydra.mapping.newznab.ActionAttribute;
 import org.nzbhydra.mapping.newznab.xml.NewznabAttribute;
+import org.nzbhydra.mapping.newznab.xml.NewznabXmlApilimits;
 import org.nzbhydra.mapping.newznab.xml.NewznabXmlChannel;
 import org.nzbhydra.mapping.newznab.xml.NewznabXmlEnclosure;
 import org.nzbhydra.mapping.newznab.xml.NewznabXmlError;
@@ -127,7 +129,7 @@ public class Newznab extends Indexer<Xml> {
 
         String query = "";
 
-        if (searchRequest.getInternalData().getFallbackState() != InternalData.FallbackState.REQUESTED) {
+        if (searchRequest.getInternalData().getFallbackStateByIndexer(getName()) != InternalData.FallbackState.REQUESTED) {
             //Don't provide search IDs when a fallback to query generation was requested
             componentsBuilder = extendQueryUrlWithSearchIds(searchRequest, componentsBuilder);
         }
@@ -185,12 +187,15 @@ public class Newznab extends Indexer<Xml> {
             componentsBuilder.queryParam("minsize", searchRequest.getMinsize().get());
         }
 
-        if (!(configProvider.getBaseConfig().getSearching().isIgnorePassworded() || searchRequest.getInternalData().isIncludePasswords())) {
-            componentsBuilder.queryParam("password", "0");
-        } else if (config.getHost().toLowerCase().contains("omgwtf")) {
-            componentsBuilder.queryParam("pw", "1");
+        String passwordParameter = "password";
+        if (config.getHost().toLowerCase().contains("omgwtf")) {
+            passwordParameter = "pw";
+        }
+
+        if (!configProvider.getBaseConfig().getSearching().isIgnorePassworded() || searchRequest.getInternalData().isIncludePasswords()) {
+            componentsBuilder.queryParam(passwordParameter, "1");
         } else {
-            componentsBuilder.queryParam("password", "1");
+            componentsBuilder.queryParam(passwordParameter, "0");
         }
 
 
@@ -407,10 +412,13 @@ public class Newznab extends Indexer<Xml> {
     }
 
     @Override
-    protected List<SearchResultItem> getSearchResultItems(Xml rssRoot) {
+    protected List<SearchResultItem> getSearchResultItems(Xml rssRoot, SearchRequest searchRequest) {
         List<SearchResultItem> searchResultItems = new ArrayList<>();
 
-        for (NewznabXmlItem item : ((NewznabXmlRoot) rssRoot).getRssChannel().getItems()) {
+        final NewznabXmlRoot newznabXmlRoot = (NewznabXmlRoot) rssRoot;
+        checkForTooManyResults(searchRequest, newznabXmlRoot);
+
+        for (NewznabXmlItem item : newznabXmlRoot.getRssChannel().getItems()) {
             try {
                 SearchResultItem searchResultItem = createSearchResultItem(item);
                 searchResultItems.add(searchResultItem);
@@ -422,43 +430,76 @@ public class Newznab extends Indexer<Xml> {
         return searchResultItems;
     }
 
+    private void checkForTooManyResults(SearchRequest searchRequest, NewznabXmlRoot newznabXmlRoot) {
+        if (newznabXmlRoot.getRssChannel().getNewznabResponse() != null) { //is null for torznab
+            final Integer total = newznabXmlRoot.getRssChannel().getNewznabResponse().getTotal();
+            if (searchRequest.isIdBasedQuery() && !searchRequest.getInternalData().isQueryGenerated() && total >= 10_000) {
+                warn("Indexer returned " + total + " results for an ID based searched. Will interpret this as no results found");
+                newznabXmlRoot.getRssChannel().getNewznabResponse().setTotal(0);
+                newznabXmlRoot.getRssChannel().getItems().clear();
+            }
+        }
+    }
+
     protected void completeIndexerSearchResult(Xml response, IndexerSearchResult indexerSearchResult, AcceptorResult acceptorResult, SearchRequest searchRequest, int offset, Integer limit) {
         NewznabXmlChannel rssChannel = ((NewznabXmlRoot) response).getRssChannel();
         NewznabXmlResponse newznabResponse = rssChannel.getNewznabResponse();
+        final int actualNumberResults = indexerSearchResult.getSearchResultItems().size();
         if (newznabResponse != null) {
             indexerSearchResult.setTotalResultsKnown(true);
             if (newznabResponse.getTotal() != null) { //Animetosho doesn't provide a total number of results
                 indexerSearchResult.setTotalResults(newznabResponse.getTotal());
-                indexerSearchResult.setHasMoreResults(newznabResponse.getTotal() > newznabResponse.getOffset() + indexerSearchResult.getSearchResultItems().size() + acceptorResult.getNumberOfRejectedResults());
-            } else {
-                indexerSearchResult.setTotalResults(indexerSearchResult.getSearchResultItems().size());
-                indexerSearchResult.setHasMoreResults(false);
-            }
-            indexerSearchResult.setOffset(newznabResponse.getOffset());
-            indexerSearchResult.setLimit(100);
-        } else {
-            indexerSearchResult.setTotalResultsKnown(false);
-            indexerSearchResult.setHasMoreResults(false);
-            indexerSearchResult.setOffset(0);
-            indexerSearchResult.setLimit(0);
-        }
+                indexerSearchResult.setHasMoreResults(newznabResponse.getTotal() > newznabResponse.getOffset() + actualNumberResults + acceptorResult.getNumberOfRejectedResults());
+             } else {
+                 indexerSearchResult.setTotalResults(actualNumberResults);
+                 indexerSearchResult.setHasMoreResults(false);
+             }
+             indexerSearchResult.setOffset(newznabResponse.getOffset());
+             indexerSearchResult.setLimit(100);
+         } else {
+             indexerSearchResult.setTotalResultsKnown(false);
+             indexerSearchResult.setHasMoreResults(false);
+             indexerSearchResult.setOffset(0);
+             indexerSearchResult.setLimit(0);
+         }
         if (indexerSearchResult.getTotalResults() == 0) {
             //Fallback to make sure the total is not 0 when actually some results were reported
-            indexerSearchResult.setTotalResults(indexerSearchResult.getSearchResultItems().size());
+            indexerSearchResult.setTotalResults(actualNumberResults);
         }
+        checkForInvalidTotal(indexerSearchResult, limit, rssChannel);
 
-        if (rssChannel.getApiLimits() != null) {
+        final NewznabXmlApilimits apiLimits = rssChannel.getApiLimits();
+        if (apiLimits != null) {
+            logger.debug(LoggingMarkers.LIMITS, "Indexer {}. ApiLimits data: {}", indexer.getName(), apiLimits);
+
             IndexerLimit indexerStatus = indexerStatusRepository.findByIndexer(indexer);
-            indexerStatus.setApiHits(rssChannel.getApiLimits().getApiCurrent());
-            indexerStatus.setApiHitLimit(rssChannel.getApiLimits().getApiMax());
-            indexerStatus.setDownloads(rssChannel.getApiLimits().getGrabCurrent());
-            indexerStatus.setDownloadLimit(rssChannel.getApiLimits().getGrabMax());
-            indexerStatus.setOldestApiHit(rssChannel.getApiLimits().getApiOldestTime());
-            indexerStatus.setOldestDownload(rssChannel.getApiLimits().getGrabOldestTime());
+            indexerStatus.setApiHits(apiLimits.getApiCurrent());
+            indexerStatus.setApiHitLimit(apiLimits.getApiMax());
+            indexerStatus.setDownloads(apiLimits.getGrabCurrent());
+            indexerStatus.setDownloadLimit(apiLimits.getGrabMax());
+            indexerStatus.setOldestApiHit(apiLimits.getApiOldestTime());
+            indexerStatus.setOldestDownload(apiLimits.getGrabOldestTime());
 
             indexerStatusRepository.save(indexerStatus);
+        } else {
+            logger.debug(LoggingMarkers.LIMITS, "Indexer {}. No limits provided in response.", indexer.getName());
         }
 
+    }
+
+    private void checkForInvalidTotal(IndexerSearchResult indexerSearchResult, Integer limit, NewznabXmlChannel rssChannel) {
+        final int newznabItemsCount = rssChannel.getItems().size();
+        final NewznabXmlResponse newznabResponse = rssChannel.getNewznabResponse();
+        if (newznabResponse == null || newznabResponse.getTotal() == null) {
+            return;
+        }
+        final int newznabTotal = newznabResponse.getTotal();
+        int offset = newznabResponse.getOffset();
+        if (offset == 0 && newznabItemsCount < newznabTotal && newznabItemsCount < limit) {
+            warn("Indexer's response indicates a total of " + newznabTotal + " results but actually only " + newznabItemsCount + " were returned");
+            indexerSearchResult.setTotalResults(newznabItemsCount);
+            indexerSearchResult.setHasMoreResults(false);
+        }
     }
 
     protected SearchResultItem createSearchResultItem(NewznabXmlItem item) throws NzbHydraException {

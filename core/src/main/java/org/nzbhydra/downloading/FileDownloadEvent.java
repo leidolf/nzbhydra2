@@ -1,5 +1,5 @@
 /*
- *  (C) Copyright 2017 TheOtherP (theotherp@gmx.de)
+ *  (C) Copyright 2017 TheOtherP (theotherp@posteo.net)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,13 +17,23 @@
 package org.nzbhydra.downloading;
 
 import lombok.Getter;
+import org.nzbhydra.searching.db.SearchResultEntity;
 
 @Getter
 public class FileDownloadEvent {
-    private FileDownloadEntity downloadEntity;
 
-    public FileDownloadEvent(FileDownloadEntity downloadEntity) {
-        this.downloadEntity = downloadEntity;
+    private final long searchResultEntityId;
+    private final int downloadEntityId;
+
+    private final FileDownloadEntity fileDownloadEntity;
+
+    private final SearchResultEntity searchResultEntity;
+
+
+    public FileDownloadEvent(FileDownloadEntity fileDownloadEntity, SearchResultEntity searchResultEntityHasDownloaded) {
+        this.downloadEntityId = fileDownloadEntity.getId();
+        this.searchResultEntityId = searchResultEntityHasDownloaded.getId();
+        this.fileDownloadEntity = fileDownloadEntity;
+        this.searchResultEntity = searchResultEntityHasDownloaded;
     }
-
 }

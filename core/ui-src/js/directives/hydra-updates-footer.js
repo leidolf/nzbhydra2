@@ -1,5 +1,5 @@
 /*
- *  (C) Copyright 2017 TheOtherP (theotherp@gmx.de)
+ *  (C) Copyright 2017 TheOtherP (theotherp@posteo.net)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ function hydraUpdatesFooter() {
         controller: controller
     };
 
-    function controller($scope, UpdateService, RequestsErrorHandler, HydraAuthService, $http, $uibModal, ConfigService, GenericStorageService, ModalService) {
+    function controller($scope, UpdateService, RequestsErrorHandler, HydraAuthService, $http, $uibModal, ConfigService, GenericStorageService, ModalService, growl) {
 
         $scope.updateAvailable = false;
         $scope.checked = false;
@@ -56,15 +56,27 @@ function hydraUpdatesFooter() {
             $http.get("internalapi/updates/isDisplayWrapperOutdated").then(function (response) {
                 var data = response.data;
                 if (data !== undefined && data !== null && data) {
-                    ModalService.open("Outdated wrapper detected", 'The NZBHydra wrapper (i.e. the executable or python script you use to run NZBHydra) seems to be outdated. Please update it:<br>Shut down NZBHydra, <a href="https://github.com/theotherp/nzbhydra2/releases/latest">download the latest version</a> and extract it into your main NZBHydra folder. Start NZBHydra again.', {
+                    ModalService.open("Outdated wrappers detected", 'The NZBHydra wrappers (i.e. the executables or python scripts you use to run NZBHydra) seem to be outdated. Please update them.<br><br>\n' +
+                        '      Shut down NZBHydra, <a href="https://github.com/theotherp/nzbhydra2/releases/latest">download the latest version</a> and extract all the relevant wrapper files into your main NZBHydra folder.<br>\n' +
+                        '      For Windows these files are:\n' +
+                        '      <ul>\n' +
+                        '        <li>NZBHydra2.exe</li>\n' +
+                        '        <li>NZBHydra2 Console.exe</li>\n' +
+                        '      </ul>\n' +
+                        '      For linux these files are:\n' +
+                        '      <ul>\n' +
+                        '        <li>nzbhydra2</li>\n' +
+                        '        <li>nzbhydra2wrapper.py</li>\n' +
+                        '        <li>nzbhydra2wrapperPy3.py</li>\n' +
+                        '      </ul>\n' +
+                        '      Make sure to overwrite all of these files that already exist - you don\'t need to update any files that aren\'t already present.\n' +
+                        '      <br><br>\n' +
+                        '      Afterwards start NZBHydra again.', {
                         yes: {
                             text: "OK",
                             onYes: function () {
                                 $http.put("internalapi/updates/setOutdatedWrapperDetectedWarningShown")
                             }
-                        },
-                        cancel: {
-                            text: "Remind me again"
                         }
                     }, undefined, "left");
 
@@ -145,6 +157,25 @@ function hydraUpdatesFooter() {
             });
         }
 
+        function checkExpiredIndexers() {
+            _.each(ConfigService.getSafe().indexers, function (indexer) {
+                if (indexer.vipExpirationDate != null) {
+                    var expiryWarning;
+                    var expiryDate = moment(indexer.vipExpirationDate, "YYYY-MM-DD");
+                    var messagePrefix = "VIP access for indexer " + indexer.name;
+                    if (expiryDate < moment()) {
+                        expiryWarning = messagePrefix + " expired on " + indexer.vipExpirationDate;
+                    } else if (expiryDate.subtract(7, 'days') < moment()) {
+                        expiryWarning = messagePrefix + " will expire on " + indexer.vipExpirationDate;
+                    }
+                    if (expiryWarning) {
+                        console.log(expiryWarning);
+                        growl.warning(expiryWarning);
+                    }
+                }
+            });
+        }
+
         function checkAndShowWelcome() {
             RequestsErrorHandler.specificallyHandled(function () {
                 $http.get("internalapi/welcomeshown").then(function (response) {
@@ -163,6 +194,7 @@ function hydraUpdatesFooter() {
                         });
                     } else {
                         _.defer(checkAndShowNews);
+                        _.defer(checkExpiredIndexers);
                     }
                 }, function () {
                     console.log("Error while checking for welcome")

@@ -20,7 +20,7 @@ function searchResult() {
         $scope.foo.duplicatesDisplayed = localStorageService.get("duplicatesDisplayed") !== null ? localStorageService.get("duplicatesDisplayed") : false;
         $scope.foo.showCovers = localStorageService.get("showCovers") !== null ? localStorageService.get("showCovers") : true;
         $scope.duplicatesExpanded = false;
-        $scope.titlesExpanded = false;
+        $scope.titlesExpanded = $scope.searchResultsControllerShared.expandGroupsByDefault;
         $scope.coverSize = ConfigService.getSafe().searching.coverSize;
 
         function calculateDisplayState() {
@@ -211,7 +211,28 @@ function searchResult() {
                 return number;
             };
         };
-        DebugService.log("search-result");
+
+
+        $scope.showCover = function (url) {
+            console.log("Show " + url);
+            $uibModal.open({
+                template: '<div class="modal-body" style="text-align: center">\n' +
+                    '    <img ng-src="{{url}}" ng-click="$close()"/>\n' +
+                    '</div>',
+                controller: function ($scope, url) {
+                    $scope.url = url;
+                },
+                resolve: {
+                    url: function () {
+                        return url;
+                    }
+                },
+                size: "md",
+                keyboard: true,
+                windowTopClass: 'cover-modal-dialog'
+            });
+        };
+
     }
 }
 

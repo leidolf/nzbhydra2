@@ -14,6 +14,8 @@ public class LoggingConfig extends ValidatingConfig<LoggingConfig> {
     private HistoryUserInfoType historyUserInfoType = HistoryUserInfoType.NONE;
     private boolean logIpAddresses;
     private boolean mapIpToHost;
+    @RestartRequired
+    private boolean logGc;
     private int logMaxHistory;
     @RestartRequired
     private String logfilelevel;
@@ -30,7 +32,7 @@ public class LoggingConfig extends ValidatingConfig<LoggingConfig> {
     }
 
     @Override
-    public LoggingConfig prepareForSaving() {
+    public LoggingConfig prepareForSaving(BaseConfig oldBaseConfig) {
         return this;
     }
 

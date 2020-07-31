@@ -54,12 +54,10 @@ import java.util.Arrays;
 import java.util.Map;
 
 @SuppressWarnings("ResultOfMethodCallIgnored")
-@Configuration
+@Configuration(proxyBeanMethods = false)
 @EnableAutoConfiguration(exclude = {
-        //WebSocketServletAutoConfiguration.class,
         AopAutoConfiguration.class, org.springframework.boot.autoconfigure.cache.CacheAutoConfiguration.class})
 @ComponentScan
-//(excludeFilters = {@ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = {GlobalMethodSecurityConfiguration.class})})
 @RestController
 @EnableCaching
 @EnableScheduling
@@ -181,6 +179,8 @@ public class NzbHydra {
         setApplicationProperty("main.sslKeyStore", "MAIN_SSL_KEY_STORE", baseConfig.getMain().getSslKeyStore());
         setApplicationProperty("main.sslKeyStorePassword", "MAIN_SSL_KEY_STORE_PASSWORD", baseConfig.getMain().getSslKeyStorePassword());
         setApplicationProperty("main.databaseCompactTime", "MAIN_DATABASE_COMPACT_TIME", String.valueOf(baseConfig.getMain().getDatabaseCompactTime()));
+        setApplicationProperty("main.databaseRetentionTime", "MAIN_DATABASE_RETENTION_TIME", String.valueOf(baseConfig.getMain().getDatabaseRetentionTime()));
+        setApplicationProperty("main.databaseWriteDelay", "MAIN_DATABASE_WRITE_DELA", String.valueOf(baseConfig.getMain().getDatabaseWriteDelay()));
         setApplicationProperty("main.logging.consolelevel", "MAIN_LOGGING_CONSOLELEVEL", baseConfig.getMain().getLogging().getConsolelevel());
         setApplicationProperty("main.logging.logfilelevel", "MAIN_LOGGING_LOGFILELEVEL", baseConfig.getMain().getLogging().getLogfilelevel());
         setApplicationProperty("main.logging.logMaxHistory", "MAIN_LOGGING_LOG_MAX_HISTORY", String.valueOf(baseConfig.getMain().getLogging().getLogMaxHistory()));
@@ -264,7 +264,7 @@ public class NzbHydra {
         }
     }
 
-    private static boolean isOsWindows() {
+    public static boolean isOsWindows() {
         String osName = System.getProperty("os.name");
         return osName.toLowerCase().contains("windows");
     }

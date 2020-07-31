@@ -63,10 +63,11 @@ public class MockNewznab {
         if (nzbId.endsWith("12")) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
-        if (nzbId.endsWith("12")) {
-            return ResponseEntity.ok("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+        if (nzbId.endsWith("13")) {
+            return ResponseEntity.status(429).body("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
                     "<error code=\"429\" description=\"Request limit reached\"/>");
         }
+
         return ResponseEntity.ok("Would download NZB with ID" + nzbId);
     }
 
@@ -117,6 +118,18 @@ public class MockNewznab {
             return new ResponseEntity<Object>(rssRoot, HttpStatus.OK);
         }
 
+        if ("24".equals(params.getTmdbid())) {
+            NewznabXmlRoot rssRoot = NewznabMockBuilder.generateResponse(0, 100, itemTitleBase, false, Collections.emptyList(), false, 0);
+            rssRoot.getRssChannel().getNewznabResponse().setTotal(10_000);
+            return new ResponseEntity<Object>(rssRoot, HttpStatus.OK);
+        }
+
+        if ("samenames".equals(params.getQ())) {
+            NewznabXmlRoot rssRoot = NewznabMockBuilder.generateResponse(0, 100, "", false, Collections.emptyList(), false, 0);
+            rssRoot.getRssChannel().getNewznabResponse().setTotal(1000);
+            return new ResponseEntity<Object>(rssRoot, HttpStatus.OK);
+        }
+
         boolean doGenerateDuplicates = "duplicates".equals(params.getQ());
         if (params.getQ() != null && params.getQ().equals("offsettest")) {
             NewznabXmlRoot rssRoot = new NewznabXmlRoot();
@@ -142,6 +155,11 @@ public class MockNewznab {
             NewznabMockRequest mockRequest = NewznabMockRequest.builder().numberOfResults(15).titleBase("tv").newznabCategory("5040").offset(0).total(15).titleBase("game of thrones").build();
             NewznabXmlRoot rssRoot = NewznabMockBuilder.generateResponse(mockRequest);
             List<NewznabXmlItem> items = rssRoot.getRssChannel().getItems();
+            for (int i = 0; i < 15; i++) {
+
+                items.get(i).getNewznabAttributes().add(new NewznabAttribute("season", "1"));
+                items.get(i).getNewznabAttributes().add(new NewznabAttribute("episode", String.valueOf(i % 3)));
+            }
 
             return new ResponseEntity<Object>(rssRoot, HttpStatus.OK);
         }
@@ -398,12 +416,25 @@ public class MockNewznab {
         if (!params.getCat().isEmpty()) {
             titleBase += params.getCat().get(0);
         }
+
+        if ("samenames".equals(params.getQ())) {
+            titleBase = "";
+        }
+
         NewznabXmlRoot rssRoot = NewznabMockBuilder.generateResponse(0, 100, titleBase, false, Collections.emptyList(), true, 0);
+        rssRoot.getRssChannel().setNewznabResponse(null);
         Random random = new Random();
+
         for (NewznabXmlItem item : rssRoot.getRssChannel().getItems()) {
             item.setNewznabAttributes(new ArrayList<>());
             item.getTorznabAttributes().add(new NewznabAttribute("seeders", String.valueOf(random.nextInt(30000))));
             item.getTorznabAttributes().add(new NewznabAttribute("peers", String.valueOf(random.nextInt(30000))));
+            item.getTorznabAttributes().add(new NewznabAttribute("uploadvolumefactor", "1.0"));
+            if (random.nextInt(5) == 3) {
+                item.getTorznabAttributes().add(new NewznabAttribute("downloadvolumefactor", "0"));
+            } else {
+                item.getTorznabAttributes().add(new NewznabAttribute("downloadvolumefactor", String.valueOf(random.nextFloat())));
+            }
             if (random.nextInt(5) > 3) {
                 item.getTorznabAttributes().add(new NewznabAttribute("grabs", String.valueOf(random.nextInt(30000))));
             }
@@ -411,6 +442,7 @@ public class MockNewznab {
 
             item.setGrabs(null);
 //            item.getNewznabAttributes().clear();
+
         }
 
         return new ResponseEntity<Object>(rssRoot, HttpStatus.OK);

@@ -5,8 +5,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.nzbhydra.mapping.SemanticVersion;
-import org.nzbhydra.okhttp.WebAccess;
 import org.nzbhydra.update.UpdateManager;
+import org.nzbhydra.webaccess.WebAccess;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,6 +16,7 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -55,12 +56,23 @@ public class NewsProvider {
 
     public List<NewsEntry> getNewsForCurrentVersionAndAfter() throws IOException {
         List<ShownNews> shownNews = shownNewsRepository.findAll();
+
+        if (shownNews == null || shownNews.isEmpty()) {
+            return Collections.emptyList();
+        }
+
         SemanticVersion from = shownNews.size() == 1 ? new SemanticVersion(shownNews.get(0).getVersion()) : null;
         SemanticVersion to = new SemanticVersion(updateManager.getCurrentVersionString());
 
         List<NewsEntry> news = getNews();
-        return news.stream().filter(x -> !(from != null && from.isSameOrNewer(x.getShowForVersion()) || x.getShowForVersion().isUpdateFor(to))).collect(Collectors.toList());
+        return news.stream()
+                .filter(x -> isShowNewsEntry(from, to, x))
+                .collect(Collectors.toList());
 
+    }
+
+    private boolean isShowNewsEntry(SemanticVersion from, SemanticVersion to, NewsEntry x) {
+        return !(from != null && from.isSameOrNewer(x.getShowForVersion()) || x.getShowForVersion().isUpdateFor(to));
     }
 
 

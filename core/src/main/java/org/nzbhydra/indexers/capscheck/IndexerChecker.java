@@ -1,5 +1,5 @@
 /*
- *  (C) Copyright 2017 TheOtherP (theotherp@gmx.de)
+ *  (C) Copyright 2017 TheOtherP (theotherp@posteo.net)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ import org.nzbhydra.indexers.Indexer.BackendType;
 import org.nzbhydra.indexers.IndexerWebAccess;
 import org.nzbhydra.indexers.capscheck.CapsCheckRequest.CheckType;
 import org.nzbhydra.indexers.exceptions.IndexerAccessException;
+import org.nzbhydra.logging.LoggingMarkers;
 import org.nzbhydra.logging.MdcThreadPoolExecutor;
 import org.nzbhydra.mapping.newznab.ActionAttribute;
 import org.nzbhydra.mapping.newznab.xml.NewznabXmlApilimits;
@@ -159,8 +160,6 @@ public class IndexerChecker {
     protected boolean isNewznabResult(NewznabXmlRoot rssRoot) {
         return rssRoot.getRssChannel().getItems().stream().anyMatch(x -> x.getEnclosures().stream().anyMatch(enclosure -> "application/x-nzb".equals(enclosure.getType())));
     }
-
-
 
     /**
      * Attempts to determine which search IDs like IMDB or TVDB ID are supported by the indexer specified in the config.
@@ -426,6 +425,9 @@ public class IndexerChecker {
             maxApi = apiLimits.getApiMax();
             maxDownloads = apiLimits.getGrabMax();
             eventPublisher.publishEvent(new CheckerEvent(indexerConfig.getName(), "Determined API limit " + maxApi + " and download limit " + maxDownloads));
+            logger.debug(LoggingMarkers.LIMITS, "Indexer {}. Max API hits: {}. Max downloads: {}", indexerConfig.getName(), maxApi, maxDownloads);
+        } else {
+            logger.debug(LoggingMarkers.LIMITS, "Indexer {}. No limits provided in response.", indexerConfig.getName());
         }
         if (supported) {
             logger.info("Indexer {} probably supports the ID type {}. {}% of results were correct.", request.indexerConfig.getName(), request.getIdType(), percentCorrect);

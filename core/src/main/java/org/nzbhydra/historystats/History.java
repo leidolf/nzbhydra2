@@ -84,7 +84,7 @@ public class History {
         boolean useLower = true;
         if (sortModel != null) {
             String column = sortModel.getColumn();
-            if ("time".equalsIgnoreCase(column)) {
+            if ("time".equalsIgnoreCase(column) || "age".equalsIgnoreCase(column)) {
                 useNullsLast = false;
                 useLower = false;
             }
@@ -93,6 +93,11 @@ public class History {
             }
             sort = String.format(" order by %s %s %s ", column, sortModel.getSortMode() == 1 ? "ASC" : "DESC", useNullsLast ? "nulls last" : "");
         }
+        //Always sort by newest next so order remains stable
+        if (!"time".equalsIgnoreCase(sortModel.getColumn())) {
+            sort += ", time desc";
+        }
+
 
         String whereConditions = "";
         if (!wheres.isEmpty()) {

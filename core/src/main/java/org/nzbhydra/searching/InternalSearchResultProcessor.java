@@ -3,6 +3,8 @@ package org.nzbhydra.searching;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Multiset;
 import org.nzbhydra.config.ConfigProvider;
+import org.nzbhydra.downloading.FileDownloadEntity;
+import org.nzbhydra.downloading.FileDownloadRepository;
 import org.nzbhydra.downloading.FileHandler;
 import org.nzbhydra.logging.LoggingMarkers;
 import org.nzbhydra.searching.dtoseventsenums.IndexerSearchMetaData;
@@ -15,15 +17,18 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.text.DecimalFormat;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -36,6 +41,9 @@ public class InternalSearchResultProcessor {
     private FileHandler nzbHandler;
     @Autowired
     private ConfigProvider configProvider;
+
+    @Autowired
+    private FileDownloadRepository fileDownloadRepository;
 
     public SearchResponse createSearchResponse(org.nzbhydra.searching.SearchResult searchResult) {
         Stopwatch stopwatch = Stopwatch.createStarted();
@@ -82,29 +90,34 @@ public class InternalSearchResultProcessor {
     private List<SearchResultWebTO> transformSearchResults(List<SearchResultItem> searchResultItems) {
         List<SearchResultWebTO> transformedSearchResults = new ArrayList<>();
 
+        final List<Long> guids = searchResultItems.stream().map(SearchResultItem::getGuid).collect(Collectors.toList());
+        final Collection<FileDownloadEntity> alreadyDownloaded = fileDownloadRepository.findBySearchResultIdIn(guids);
+
+        DecimalFormat df = new DecimalFormat();
+        df.setMaximumFractionDigits(0);
         for (SearchResultItem item : searchResultItems) {
             SearchResultWebTOBuilder builder = SearchResultWebTO.builder()
-                .category(configProvider.getBaseConfig().getSearching().isUseOriginalCategories() ? item.getOriginalCategory() : item.getCategory().getName())
-                .comments(item.getCommentsCount())
-                .cover(item.getCover())
-                .details_link(item.getDetails())
-                .downloadType(item.getDownloadType().name())
-                .files(item.getFiles())
-                .grabs(item.getGrabs())
-                .seeders(item.getSeeders())
-                .peers(item.getPeers())
-                .hasNfo(item.getHasNfo().name())
-                .hash(item.getDuplicateIdentifier())
-                .indexer(item.getIndexer().getName())
-                .indexerguid(item.getIndexerGuid())
-                .indexerscore(item.getIndexer().getConfig().getScore().orElse(null))
-                .link(nzbHandler.getDownloadLink(item.getSearchResultId(), true, item.getDownloadType()))
-                .originalCategory(item.getOriginalCategory())
-                .poster(item.getPoster().orElse(null))
-                .searchResultId(item.getSearchResultId().toString())
-                .size(item.getSize())
-                .title(item.getTitle())
-                .source(item.getSource().orElse(null));
+                    .category(configProvider.getBaseConfig().getSearching().isUseOriginalCategories() ? item.getOriginalCategory() : item.getCategory().getName())
+                    .comments(item.getCommentsCount())
+                    .cover(item.getCover())
+                    .details_link(item.getDetails())
+                    .downloadType(item.getDownloadType().name())
+                    .files(item.getFiles())
+                    .grabs(item.getGrabs())
+                    .seeders(item.getSeeders())
+                    .peers(item.getPeers())
+                    .hasNfo(item.getHasNfo().name())
+                    .hash(item.getDuplicateIdentifier())
+                    .indexer(item.getIndexer().getName())
+                    .indexerguid(item.getIndexerGuid())
+                    .indexerscore(item.getIndexer().getConfig().getScore().orElse(null))
+                    .link(nzbHandler.getDownloadLink(item.getSearchResultId(), true, item.getDownloadType()))
+                    .originalCategory(item.getOriginalCategory())
+                    .poster(item.getPoster().orElse(null))
+                    .searchResultId(item.getSearchResultId().toString())
+                    .size(item.getSize())
+                    .title(item.getTitle())
+                    .source(item.getSource().orElse(null));
             builder = setSearchResultDateRelatedValues(builder, item);
             if (item.getAttributes().containsKey("season")) {
                 builder.season(item.getAttributes().get("season"));
@@ -115,9 +128,28 @@ public class InternalSearchResultProcessor {
             if (item.getAttributes().containsKey("showtitle")) {
                 builder.showtitle(item.getAttributes().get("showtitle"));
             }
+            if (item.getAttributes().containsKey("downloadvolumefactor") && item.getAttributes().containsKey("uploadvolumefactor")) {
+                final float dl = Float.parseFloat(item.getAttributes().get("downloadvolumefactor"));
+                final float ul = Float.parseFloat(item.getAttributes().get("uploadvolumefactor"));
+                if (Float.compare(dl, 0F) == 0) {
+                    builder.torrentDownloadFactor("Freelech");
+                } else {
+                    int ratio = (int) (100F / (ul / dl));
+                    if (ratio != 100) {
+                        builder.torrentDownloadFactor(df.format(ratio) + "%");
+                    }
+                }
+            }
+
+            final Optional<FileDownloadEntity> matchingDownload = alreadyDownloaded.stream().filter(x -> x.getSearchResult().getId() == item.getSearchResultId()).findFirst();
+            if (matchingDownload.isPresent()) {
+                builder.downloadedAt(DATE_TIME_FORMATTER.format(LocalDateTime.ofInstant(matchingDownload.get().getTime(), ZoneId.of("UTC"))));
+            }
 
             transformedSearchResults.add(builder.build());
         }
+
+
         transformedSearchResults.sort(Comparator.comparingLong(SearchResultWebTO::getEpoch).reversed());
         return transformedSearchResults;
     }
@@ -141,9 +173,9 @@ public class InternalSearchResultProcessor {
             }
         }
         builder = builder
-            .age_precise(item.isAgePrecise())
-            .date(LocalDateTime.ofInstant(date, ZoneId.of("UTC")).format(item.isAgePrecise() ? DATE_TIME_FORMATTER : DATE_FORMATTER))
-            .epoch(date.getEpochSecond());
+                .age_precise(item.isAgePrecise())
+                .date(LocalDateTime.ofInstant(date, ZoneId.of("UTC")).format(item.isAgePrecise() ? DATE_TIME_FORMATTER : DATE_FORMATTER))
+                .epoch(date.getEpochSecond());
         return builder;
     }
 }

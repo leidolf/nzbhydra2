@@ -47,6 +47,8 @@ function SearchController($scope, $http, $stateParams, $state, $uibModal, $timeo
         $scope.indexers = decodeURIComponent($stateParams.indexers).split(",");
     }
     if (angular.isDefined($stateParams.title) || (angular.isDefined($stateParams.tmdbId) || angular.isDefined($stateParams.imdbId) || angular.isDefined($stateParams.tvmazeId) || angular.isDefined($stateParams.rid) || angular.isDefined($stateParams.tvdbId))) {
+        var width = calculateWidth($stateParams.title) + 30;
+        $scope.selectedItemWidth = width + "px";
         $scope.selectedItem = {
             tmdbId: $stateParams.tmdbId,
             imdbId: $stateParams.imdbId,
@@ -170,10 +172,8 @@ function SearchController($scope, $http, $stateParams, $state, $uibModal, $timeo
 
     //Is called when the search page is opened with params, either because the user initiated the search (which triggered a goTo to this page) or because a search URL was entered
     $scope.startSearch = function () {
-        // console.time("searchonly");
-        // console.time("searchall");
         isSearchCancelled = false;
-        searchRequestId = Math.round(Math.random() * 999999);
+        searchRequestId = Math.round(Math.random() * 99999);
         var modalInstance = $scope.openModal(searchRequestId);
 
         var indexers = angular.isUndefined($scope.indexers) ? undefined : $scope.indexers.join(",");
@@ -260,6 +260,12 @@ function SearchController($scope, $http, $stateParams, $state, $uibModal, $timeo
     $scope.clearAutocomplete = function () {
         $scope.selectedItem = null;
         $scope.query = ""; //Input is now for autocomplete and not for limiting the results
+        focus('searchfield');
+    };
+
+    $scope.clearQuery = function () {
+        $scope.selectedItem = null;
+        $scope.query = "";
         focus('searchfield');
     };
 

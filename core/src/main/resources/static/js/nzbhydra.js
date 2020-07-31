@@ -5,7 +5,7 @@ var nzbhydraapp = angular.module('nzbhydraApp', ['angular-loading-bar', 'cgBusy'
     'angular.filter', 'filters', 'ui.router', 'blockUI', 'mgcrea.ngStrap', 'angularUtils.directives.dirPagination',
     'nvd3', 'formly', 'formlyBootstrap', 'frapontillo.bootstrap-switch', 'ui.select', 'ngSanitize', 'checklist-model',
     'ngAria', 'ngMessages', 'ui.router.title', 'LocalStorageModule', 'angular.filter', 'ngFileUpload', 'ngCookies', 'angular.chips',
-    'templates', 'base64', 'duScroll']);
+    'templates', 'base64', 'duScroll', 'colorpicker.module']);
 
 nzbhydraapp.config(['$compileProvider', function ($compileProvider) {
     $compileProvider.debugInfoEnabled(true);
@@ -213,7 +213,6 @@ angular.module('nzbhydraApp').config(["$stateProvider", "$urlRouterProvider", "$
                     controller: ["$scope", "$state", function ($scope, $state) {
                         $scope.$state = $state;
                         $scope.bootstrapped = bootstrapped;
-                        console.log(bootstrapped);
                     }],
                     resolve: {
                         loginRequired: ['$q', '$timeout', '$state', 'HydraAuthService', function ($q, $timeout, $state, HydraAuthService) {
@@ -330,6 +329,9 @@ angular.module('nzbhydraApp').config(["$stateProvider", "$urlRouterProvider", "$
                         activeTab: [function () {
                             return 0;
                         }],
+                        simpleInfos: function () {
+                            return null;
+                        },
                         $title: ["$stateParams", function ($stateParams) {
                             return "System"
                         }]
@@ -353,6 +355,9 @@ angular.module('nzbhydraApp').config(["$stateProvider", "$urlRouterProvider", "$
                         activeTab: [function () {
                             return 1;
                         }],
+                        simpleInfos: function () {
+                            return null;
+                        },
                         $title: ["$stateParams", function ($stateParams) {
                             return "System (Updates)"
                         }]
@@ -376,6 +381,9 @@ angular.module('nzbhydraApp').config(["$stateProvider", "$urlRouterProvider", "$
                         activeTab: [function () {
                             return 2;
                         }],
+                        simpleInfos: function () {
+                            return null;
+                        },
                         $title: ["$stateParams", function ($stateParams) {
                             return "System (Log)"
                         }]
@@ -399,6 +407,9 @@ angular.module('nzbhydraApp').config(["$stateProvider", "$urlRouterProvider", "$
                         activeTab: [function () {
                             return 3;
                         }],
+                        simpleInfos: function () {
+                            return null;
+                        },
                         $title: ["$stateParams", function ($stateParams) {
                             return "System (Tasks)"
                         }]
@@ -422,6 +433,9 @@ angular.module('nzbhydraApp').config(["$stateProvider", "$urlRouterProvider", "$
                         activeTab: [function () {
                             return 4;
                         }],
+                        simpleInfos: function () {
+                            return null;
+                        },
                         $title: ["$stateParams", function ($stateParams) {
                             return "System (Backup)"
                         }]
@@ -445,6 +459,9 @@ angular.module('nzbhydraApp').config(["$stateProvider", "$urlRouterProvider", "$
                         activeTab: [function () {
                             return 5;
                         }],
+                        simpleInfos: function () {
+                            return null;
+                        },
                         $title: ["$stateParams", function ($stateParams) {
                             return "System (Bug report)"
                         }]
@@ -468,6 +485,9 @@ angular.module('nzbhydraApp').config(["$stateProvider", "$urlRouterProvider", "$
                         activeTab: [function () {
                             return 6;
                         }],
+                        simpleInfos: function () {
+                            return null;
+                        },
                         $title: ["$stateParams", function ($stateParams) {
                             return "System (News)"
                         }]
@@ -487,6 +507,15 @@ angular.module('nzbhydraApp').config(["$stateProvider", "$urlRouterProvider", "$
                         }],
                         safeConfig: ['loginRequired', 'ConfigService', function (loginRequired, ConfigService) {
                             return ConfigService.getSafe();
+                        }],
+                        simpleInfos: ['$http', 'RequestsErrorHandler', function ($http, RequestsErrorHandler) {
+                            return RequestsErrorHandler.specificallyHandled(function () {
+                                return $http.get("internalapi/updates/simpleInfos").then(
+                                    function (response) {
+                                        return response.data;
+                                    }
+                                );
+                            });
                         }],
                         activeTab: [function () {
                             return 7;
@@ -851,7 +880,7 @@ nzbhydraapp.directive('eventFocus', ["focus", function (focus) {
 
 
 /*
- *  (C) Copyright 2017 TheOtherP (theotherp@gmx.de)
+ *  (C) Copyright 2017 TheOtherP (theotherp@posteo.net)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -985,7 +1014,7 @@ function searchResult() {
         $scope.foo.duplicatesDisplayed = localStorageService.get("duplicatesDisplayed") !== null ? localStorageService.get("duplicatesDisplayed") : false;
         $scope.foo.showCovers = localStorageService.get("showCovers") !== null ? localStorageService.get("showCovers") : true;
         $scope.duplicatesExpanded = false;
-        $scope.titlesExpanded = false;
+        $scope.titlesExpanded = $scope.searchResultsControllerShared.expandGroupsByDefault;
         $scope.coverSize = ConfigService.getSafe().searching.coverSize;
 
         function calculateDisplayState() {
@@ -1176,7 +1205,28 @@ function searchResult() {
                 return number;
             };
         };
-        DebugService.log("search-result");
+
+
+        $scope.showCover = function (url) {
+            console.log("Show " + url);
+            $uibModal.open({
+                template: '<div class="modal-body" style="text-align: center">\n' +
+                    '    <img ng-src="{{url}}" ng-click="$close()"/>\n' +
+                    '</div>',
+                controller: ["$scope", "url", function ($scope, url) {
+                    $scope.url = url;
+                }],
+                resolve: {
+                    url: function () {
+                        return url;
+                    }
+                },
+                size: "md",
+                keyboard: true,
+                windowTopClass: 'cover-modal-dialog'
+            });
+        };
+
     }
 }
 
@@ -1209,25 +1259,35 @@ angular
     });
 angular
     .module('nzbhydraApp')
-    .directive('saveOrSendTorrent', saveOrSendTorrent);
+    .directive('saveOrSendFile', saveOrSendFile);
 
-function saveOrSendTorrent() {
+function saveOrSendFile() {
     controller.$inject = ["$scope", "$http", "growl", "ConfigService"];
     return {
-        templateUrl: 'static/html/directives/save-or-send-torrent.html',
+        templateUrl: 'static/html/directives/save-or-send-file.html',
         scope: {
             searchResultId: "<",
-            isFile: "<"
+            isFile: "<",
+            type: "<"
         },
         controller: controller
     };
 
     function controller($scope, $http, growl, ConfigService) {
-        $scope.enableButton = (ConfigService.getSafe().downloading.saveTorrentsTo !== null && ConfigService.getSafe().downloading.saveTorrentsTo !== "") || ConfigService.getSafe().downloading.sendMagnetLinks;
         $scope.cssClass = "glyphicon-save-file";
+        var endpoint;
+        if ($scope.type === "TORRENT") {
+            $scope.enableButton = (ConfigService.getSafe().downloading.saveTorrentsTo !== null && ConfigService.getSafe().downloading.saveTorrentsTo !== "") || ConfigService.getSafe().downloading.sendMagnetLinks;
+            $scope.tooltip = "Save torrent to black hole or send magnet link";
+            endpoint = "internalapi/saveOrSendTorrent";
+        } else {
+            $scope.tooltip = "Save NZB to black hole";
+            $scope.enableButton = ConfigService.getSafe().downloading.saveNzbsTo !== null && ConfigService.getSafe().downloading.saveNzbsTo !== "";
+            endpoint = "internalapi/saveNzbToBlackhole";
+        }
         $scope.add = function () {
             $scope.cssClass = "nzb-spinning";
-            $http.put("internalapi/saveOrSendTorrent", [$scope.searchResultId]).then(function (response) {
+            $http.put(endpoint, $scope.searchResultId).then(function (response) {
                 if (response.data.successful) {
                     $scope.cssClass = "glyphicon-ok";
                 } else {
@@ -1412,7 +1472,7 @@ angular
     };
 }]);
 /*
- *  (C) Copyright 2017 TheOtherP (theotherp@gmx.de)
+ *  (C) Copyright 2017 TheOtherP (theotherp@posteo.net)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -1474,7 +1534,7 @@ function indexerStateSwitch() {
     }
 }
 /*
- *  (C) Copyright 2017 TheOtherP (theotherp@gmx.de)
+ *  (C) Copyright 2017 TheOtherP (theotherp@posteo.net)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -1591,6 +1651,20 @@ function indexerInput() {
         $scope.onBlur = function () {
             $scope.isFocused = false;
         };
+
+        var expiryWarning;
+        if ($scope.indexer.vipExpirationDate != null) {
+            var expiryDate = moment($scope.indexer.vipExpirationDate, "YYYY-MM-DD");
+            if (expiryDate < moment()) {
+                console.log("Expiry date reached for indexer " + $scope.indexer.name);
+                expiryWarning = "VIP access expired on " + $scope.indexer.vipExpirationDate;
+            } else if (expiryDate.subtract(7, 'days') < moment()) {
+                console.log("Expiry date near for indexer " + $scope.indexer.name);
+                expiryWarning = "VIP access will expire on " + $scope.indexer.vipExpirationDate;
+            }
+        }
+
+        $scope.expiryWarning = expiryWarning;
     }
 }
 
@@ -1642,7 +1716,7 @@ function hydraupdates() {
 
 
 /*
- *  (C) Copyright 2017 TheOtherP (theotherp@gmx.de)
+ *  (C) Copyright 2017 TheOtherP (theotherp@posteo.net)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -1664,13 +1738,13 @@ angular
     .directive('hydraUpdatesFooter', hydraUpdatesFooter);
 
 function hydraUpdatesFooter() {
-    controller.$inject = ["$scope", "UpdateService", "RequestsErrorHandler", "HydraAuthService", "$http", "$uibModal", "ConfigService", "GenericStorageService", "ModalService"];
+    controller.$inject = ["$scope", "UpdateService", "RequestsErrorHandler", "HydraAuthService", "$http", "$uibModal", "ConfigService", "GenericStorageService", "ModalService", "growl"];
     return {
         templateUrl: 'static/html/directives/updates-footer.html',
         controller: controller
     };
 
-    function controller($scope, UpdateService, RequestsErrorHandler, HydraAuthService, $http, $uibModal, ConfigService, GenericStorageService, ModalService) {
+    function controller($scope, UpdateService, RequestsErrorHandler, HydraAuthService, $http, $uibModal, ConfigService, GenericStorageService, ModalService, growl) {
 
         $scope.updateAvailable = false;
         $scope.checked = false;
@@ -1702,15 +1776,27 @@ function hydraUpdatesFooter() {
             $http.get("internalapi/updates/isDisplayWrapperOutdated").then(function (response) {
                 var data = response.data;
                 if (data !== undefined && data !== null && data) {
-                    ModalService.open("Outdated wrapper detected", 'The NZBHydra wrapper (i.e. the executable or python script you use to run NZBHydra) seems to be outdated. Please update it:<br>Shut down NZBHydra, <a href="https://github.com/theotherp/nzbhydra2/releases/latest">download the latest version</a> and extract it into your main NZBHydra folder. Start NZBHydra again.', {
+                    ModalService.open("Outdated wrappers detected", 'The NZBHydra wrappers (i.e. the executables or python scripts you use to run NZBHydra) seem to be outdated. Please update them.<br><br>\n' +
+                        '      Shut down NZBHydra, <a href="https://github.com/theotherp/nzbhydra2/releases/latest">download the latest version</a> and extract all the relevant wrapper files into your main NZBHydra folder.<br>\n' +
+                        '      For Windows these files are:\n' +
+                        '      <ul>\n' +
+                        '        <li>NZBHydra2.exe</li>\n' +
+                        '        <li>NZBHydra2 Console.exe</li>\n' +
+                        '      </ul>\n' +
+                        '      For linux these files are:\n' +
+                        '      <ul>\n' +
+                        '        <li>nzbhydra2</li>\n' +
+                        '        <li>nzbhydra2wrapper.py</li>\n' +
+                        '        <li>nzbhydra2wrapperPy3.py</li>\n' +
+                        '      </ul>\n' +
+                        '      Make sure to overwrite all of these files that already exist - you don\'t need to update any files that aren\'t already present.\n' +
+                        '      <br><br>\n' +
+                        '      Afterwards start NZBHydra again.', {
                         yes: {
                             text: "OK",
                             onYes: function () {
                                 $http.put("internalapi/updates/setOutdatedWrapperDetectedWarningShown")
                             }
-                        },
-                        cancel: {
-                            text: "Remind me again"
                         }
                     }, undefined, "left");
 
@@ -1791,6 +1877,25 @@ function hydraUpdatesFooter() {
             });
         }
 
+        function checkExpiredIndexers() {
+            _.each(ConfigService.getSafe().indexers, function (indexer) {
+                if (indexer.vipExpirationDate != null) {
+                    var expiryWarning;
+                    var expiryDate = moment(indexer.vipExpirationDate, "YYYY-MM-DD");
+                    var messagePrefix = "VIP access for indexer " + indexer.name;
+                    if (expiryDate < moment()) {
+                        expiryWarning = messagePrefix + " expired on " + indexer.vipExpirationDate;
+                    } else if (expiryDate.subtract(7, 'days') < moment()) {
+                        expiryWarning = messagePrefix + " will expire on " + indexer.vipExpirationDate;
+                    }
+                    if (expiryWarning) {
+                        console.log(expiryWarning);
+                        growl.warning(expiryWarning);
+                    }
+                }
+            });
+        }
+
         function checkAndShowWelcome() {
             RequestsErrorHandler.specificallyHandled(function () {
                 $http.get("internalapi/welcomeshown").then(function (response) {
@@ -1809,6 +1914,7 @@ function hydraUpdatesFooter() {
                         });
                     } else {
                         _.defer(checkAndShowNews);
+                        _.defer(checkExpiredIndexers);
                     }
                 }, function () {
                     console.log("Error while checking for welcome")
@@ -1850,7 +1956,6 @@ function WelcomeModalInstanceCtrl($scope, $uibModalInstance, $state, MigrationSe
         $state.go("root.config.main");
     }
 }
-
 angular
     .module('nzbhydraApp')
     .directive('hydraNews', hydraNews);
@@ -2066,7 +2171,7 @@ function formatClassname() {
     }
 }
 /*
- *  (C) Copyright 2017 TheOtherP (theotherp@gmx.de)
+ *  (C) Copyright 2017 TheOtherP (theotherp@posteo.net)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -2173,7 +2278,7 @@ function focusOn() {
 }
 
 /*
- *  (C) Copyright 2017 TheOtherP (theotherp@gmx.de)
+ *  (C) Copyright 2017 TheOtherP (theotherp@posteo.net)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -2250,6 +2355,7 @@ function downloaderStatusFooter() {
             }
         };
 
+
         function update() {
             var userInfos = HydraAuthService.getUserInfos();
             if (!userInfos.maySeeStats) {
@@ -2265,6 +2371,7 @@ function downloaderStatusFooter() {
                             }
                             $scope.foo = response.data;
                             $scope.foo.downloaderImage = response.data.downloaderType === 'NZBGET' ? 'nzbgetlogo' : 'sabnzbdlogo';
+                            $scope.foo.url = response.data.url;
                             //We need to splice the variable with the rates because it's watched by angular and when overwriting it we would lose the watch and it wouldn't be updated
                             var maxEntriesHistory = 200;
                             if ($scope.downloaderChart.data[0].values.length < maxEntriesHistory) {
@@ -3250,7 +3357,7 @@ function addableNzb(DebugService) {
 }
 
 /*
- *  (C) Copyright 2017 TheOtherP (theotherp@gmx.de)
+ *  (C) Copyright 2017 TheOtherP (theotherp@posteo.net)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -3268,6 +3375,28 @@ function addableNzb(DebugService) {
 CheckCapsModalInstanceCtrl.$inject = ["$scope", "$interval", "$http", "$timeout", "growl", "capsCheckRequest"];
 IndexerConfigBoxService.$inject = ["$http", "$q", "$uibModal"];
 IndexerCheckBeforeCloseService.$inject = ["$q", "ModalService", "IndexerConfigBoxService", "growl", "blockUI"];
+function regexValidator(regex, message, prefixViewValue, preventEmpty) {
+    return {
+        expression: function ($viewValue, $modelValue) {
+            var value = $modelValue || $viewValue;
+            if (value) {
+                if (Array.isArray(value)) {
+                    for (var i = 0; i < value.length; i++) {
+                        if (!regex.test(value[i])) {
+                            return false;
+                        }
+                    }
+                    return true;
+                } else {
+                    return regex.test(value);
+                }
+            }
+            return !preventEmpty;
+        },
+        message: (prefixViewValue ? '$viewValue + " ' : '" ') + message + '"'
+    };
+}
+
 function getIndexerBoxFields(indexerModel, parentModel, isInitial, CategoriesService) {
     var fieldset = [];
     if (indexerModel.searchModuleType === "TORZNAB") {
@@ -3317,8 +3446,7 @@ function getIndexerBoxFields(indexerModel, parentModel, isInitial, CategoriesSer
                 templateOptions: {
                     type: 'text',
                     label: 'Name',
-                    required: true,
-                    help: 'Used for identification.' + (isInitial ? '' : ' Changing the name will lose all history and stats!')
+                    required: true
                 },
                 validators: {
                     uniqueName: {
@@ -3391,6 +3519,21 @@ function getIndexerBoxFields(indexerModel, parentModel, isInitial, CategoriesSer
                 templateOptions: {
                     type: 'text',
                     label: 'API Key'
+                }
+            }
+        )
+    }
+
+    if (indexerModel.searchModuleType === 'NEWZNAB' || indexerModel.searchModuleType === 'TORZNAB' || indexerModel.searchModuleType === 'JACKETT_CONFIG') {
+        fieldset.push(
+            {
+                key: 'username',
+                type: 'horizontalInput',
+                templateOptions: {
+                    type: 'text',
+                    required: false,
+                    label: 'Username',
+                    help: 'Only needed if indexer requires HTTP auth for API access (rare).'
                 },
                 watcher: {
                     listener: function (field, newValue, oldValue, scope) {
@@ -3398,6 +3541,19 @@ function getIndexerBoxFields(indexerModel, parentModel, isInitial, CategoriesSer
                             scope.$parent.needsConnectionTest = true;
                         }
                     }
+                }
+            }
+        );
+        fieldset.push(
+            {
+                key: 'password',
+                type: 'passwordSwitch',
+                hideExpression: '!model.username',
+                templateOptions: {
+                    type: 'text',
+                    required: false,
+                    label: 'Password',
+                    help: 'Only needed if indexer requires HTTP auth for API access (rare).'
                 }
             }
         )
@@ -3412,7 +3568,9 @@ function getIndexerBoxFields(indexerModel, parentModel, isInitial, CategoriesSer
                     type: 'number',
                     label: 'Priority',
                     required: true,
-                    help: 'When duplicate search results are found the result from the indexer with the highest number will be selected.'
+                    help: 'When duplicate search results are found the result from the indexer with the highest number will be selected.',
+                    tooltip: 'The priority determines which indexer is used if duplicate results are found (i.e. results that link to the same upload, not just results with the same name).<br>The result from the indexer with the highest number is shown first in the GUI and returned for API searches.'
+
                 }
             });
     }
@@ -3424,6 +3582,7 @@ function getIndexerBoxFields(indexerModel, parentModel, isInitial, CategoriesSer
             templateOptions: {
                 type: 'number',
                 label: 'Timeout',
+                min: 1,
                 help: 'Supercedes the general timeout in "Searching".'
             }
         },
@@ -3446,7 +3605,8 @@ function getIndexerBoxFields(indexerModel, parentModel, isInitial, CategoriesSer
                 templateOptions: {
                     type: 'number',
                     label: 'API hit limit',
-                    help: 'Maximum number of API hits since "API hit reset time".'
+                    help: 'Maximum number of API hits since "API hit reset time".',
+                    tooltip: 'When the maximum number of API hits is reached the indexer isn\'t used anymore. Only API hits done by NZBHydra are taken into account.'
                 },
                 validators: {
                     greaterThanZero: {
@@ -3485,7 +3645,8 @@ function getIndexerBoxFields(indexerModel, parentModel, isInitial, CategoriesSer
                 templateOptions: {
                     type: 'number',
                     label: 'Hit reset time',
-                    help: 'UTC hour of day at which the API hit counter is reset (0-23). Leave empty for a rolling reset counter.'
+                    help: 'UTC hour of day at which the API hit counter is reset (0-23). Leave empty for a rolling reset counter.',
+                    tooltip: 'Either define the time of day when the counter is reset by the indexer or leave it empty to use a rolling reset counter, meaning the number of hits for the last 24 at the time of the search is limited.'
                 },
                 validators: {
                     timeOfDay: {
@@ -3503,7 +3664,8 @@ function getIndexerBoxFields(indexerModel, parentModel, isInitial, CategoriesSer
                 templateOptions: {
                     type: 'number',
                     label: 'Load limiting',
-                    help: 'If set indexer will only be picked for one out of x API searches (on average).'
+                    help: 'If set indexer will only be picked for one out of x API searches (on average).',
+                    tooltip: 'For indexers with a low API hit limit you can enable load limiting. Define any number n so that the indexer will only be used for searches in 1/n cases (on average). For example if you define a load limit of 5 the indexer will only be picked every fifth search.'
                 },
                 validators: {
                     greaterThanZero: {
@@ -3517,39 +3679,16 @@ function getIndexerBoxFields(indexerModel, parentModel, isInitial, CategoriesSer
             }
         );
     }
-    if (indexerModel.searchModuleType === 'NEWZNAB' || indexerModel.searchModuleType === 'TORZNAB' || indexerModel.searchModuleType === 'JACKETT_CONFIG') {
-        fieldset.push(
-            {
-                key: 'username',
-                type: 'horizontalInput',
-                templateOptions: {
-                    type: 'text',
-                    required: false,
-                    label: 'Username',
-                    help: 'Only needed if indexer requires HTTP auth for API access (rare).'
-                },
-                watcher: {
-                    listener: function (field, newValue, oldValue, scope) {
-                        if (newValue !== oldValue) {
-                            scope.$parent.needsConnectionTest = true;
-                        }
-                    }
-                }
+    if (indexerModel.searchModuleType === 'TORZNAB') {
+        fieldset.push({
+            key: 'minSeeders',
+            type: 'horizontalInput',
+            templateOptions: {
+                type: 'number',
+                label: 'Minimum # seeders',
+                help: 'Torznab results with fewer seeders will be ignored. Supercedes any setting made in the searching config.'
             }
-        );
-        fieldset.push(
-            {
-                key: 'password',
-                type: 'passwordSwitch',
-                hideExpression: '!model.username',
-                templateOptions: {
-                    type: 'text',
-                    required: false,
-                    label: 'Password',
-                    help: 'Only needed if indexer requires HTTP auth for API access (rare).'
-                }
-            }
-        )
+        })
     }
 
     if (indexerModel.searchModuleType === 'NEWZNAB') {
@@ -3598,6 +3737,32 @@ function getIndexerBoxFields(indexerModel, parentModel, isInitial, CategoriesSer
         }
     );
 
+    fieldset.push(
+        {
+            key: 'color',
+            type: 'colorInput',
+            templateOptions: {
+                label: 'Color',
+                help: 'If set it will be used in the search results to mark the indexer\'s results.'
+            }
+        }
+    );
+
+    fieldset.push(
+        {
+            key: 'vipExpirationDate',
+            type: 'horizontalInput',
+            templateOptions: {
+                required: false,
+                label: 'VIP expiry',
+                help: 'Enter when your VIP access expires and NZBHydra will track it and warn you when close to expiry. Enter as YYYY-MM-DD.'
+            },
+            validators: {
+                port: regexValidator(/^\d{4}\-\d{2}\-\d{2}$/, "is no valid date (must be YYYY-MM-DD)", true, false)
+            }
+        }
+    );
+
     if (indexerModel.searchModuleType !== "ANIZB" && indexerModel.searchModuleType !== 'JACKETT_CONFIG') {
         var cats = CategoriesService.getWithoutAll();
         var options = _.map(cats, function (x) {
@@ -3619,6 +3784,7 @@ function getIndexerBoxFields(indexerModel, parentModel, isInitial, CategoriesSer
             }
         );
     }
+
 
     if ((indexerModel.searchModuleType === 'NEWZNAB' || indexerModel.searchModuleType === 'TORZNAB') && !isInitial && indexerModel.searchModuleType !== 'JACKETT_CONFIG') {
         fieldset.push(
@@ -3650,6 +3816,7 @@ function getIndexerBoxFields(indexerModel, parentModel, isInitial, CategoriesSer
                         {label: 'Audio', id: 'AUDIO'},
                         {label: 'Ebooks', id: 'BOOK'},
                         {label: 'Movies', id: 'MOVIE'},
+                        {label: 'Search', id: 'SEARCH'},
                         {label: 'TV', id: 'TVSEARCH'}
                     ],
                     buttonText: "None"
@@ -3662,7 +3829,8 @@ function getIndexerBoxFields(indexerModel, parentModel, isInitial, CategoriesSer
                 hideExpression: '!model.host || !model.name',
                 templateOptions: {
                     label: 'Check capabilities',
-                    help: 'Find out what search types and IDs the indexer supports. Done automatically for new indexers.'
+                    help: 'Find out what search types and IDs the indexer supports.',
+                    tooltip: 'The first time an indexer is added the connection is tested. When successful the supported search IDs and types are checked. These determine if indexers allow searching for movies, shows or ebooks using meta data like the IMDB id or the author and title. Newznab indexers cannot be used until this check was completed. Click this button to execute the caps check again.'
                 }
             }
         )
@@ -3820,6 +3988,7 @@ angular.module('nzbhydraApp').controller('IndexerConfigSelectionBoxInstanceContr
             allCapsChecked: false,
             apiKey: null,
             backend: 'NEWZNAB',
+            color: null,
             configComplete: false,
             categoryMapping: null,
             downloadLimit: null,
@@ -4214,7 +4383,7 @@ function IndexerCheckBeforeCloseService($q, ModalService, IndexerConfigBoxServic
 
     function checkBeforeClose(scope, model) {
         var deferred = $q.defer();
-        if (model.searchModuleType !== 'JACKETT_CONFIG') {
+        if (model.searchModuleType === 'JACKETT_CONFIG') {
             deferred.resolve(model);
         } else if (!scope.isInitial && (!scope.needsConnectionTest || scope.form.capsChecked)) {
             checkCapsWhenClosing(scope, model).then(function () {
@@ -4286,7 +4455,7 @@ function IndexerCheckBeforeCloseService($q, ModalService, IndexerConfigBoxServic
     }
 }
 /*
- *  (C) Copyright 2017 TheOtherP (theotherp@gmx.de)
+ *  (C) Copyright 2017 TheOtherP (theotherp@posteo.net)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -4518,7 +4687,8 @@ angular
                                     {name: 'Send link', value: 'SEND_LINK'},
                                     {name: 'Upload NZB', value: 'UPLOAD'}
                                 ],
-                                help: "How NZBs are added to the downloader, either by sending a link to the NZB or by uploading the NZB data. Uploading is recommended"
+                                help: "How NZBs are added to the downloader, either by sending a link to the NZB or by uploading the NZB data.",
+                                tooltip: 'You can select if you want to upload the NZB to the downloader or send a Hydra link. The downloader will do the download itself. This is a matter of taste, but adding a link and redirecting the downloader is the fastest way.'
                             }
                         },
                         {
@@ -4528,7 +4698,8 @@ angular
                                 type: 'text',
                                 label: 'Icon CSS class',
                                 help: 'Copy an icon name from https://fontawesome.com/v4.7.0/icons/ (e.g. "film")',
-                                placeholder: 'Default'
+                                placeholder: 'Default',
+                                tooltip: 'If you have multiple downloaders of the same type you can select an icon from the Font Awesome library. This icon will be shown in the search results and the NZB download history instead of the default downloader icon.'
                             }
                         }
                     ]);
@@ -4682,7 +4853,7 @@ function DownloaderCheckBeforeCloseService($q, DownloaderConfigBoxService, growl
     }
 }
 /*
- *  (C) Copyright 2017 TheOtherP (theotherp@gmx.de)
+ *  (C) Copyright 2017 TheOtherP (theotherp@posteo.net)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -4727,12 +4898,10 @@ angular
 
         formlyConfigProvider.setWrapper({
             name: 'fieldset',
-            template: [
-                '<fieldset>',
-                '<legend><span class="config-fieldset-legend">{{options.templateOptions.label}}</span></legend>',
-                '<formly-transclude></formly-transclude>',
-                '</fieldset>'
-            ].join(' ')
+            templateUrl: 'fieldset-wrapper.html',
+            controller: ['$scope', function ($scope) {
+                $scope.tooltipIsOpen = false;
+            }]
         });
 
         formlyConfigProvider.setType({
@@ -4840,6 +5009,27 @@ angular
                     FileSelectionService.open($scope.model[$scope.options.key], $scope.to.type).then(function (selection) {
                         $scope.model[$scope.options.key] = selection;
                     });
+                }
+            }
+        });
+
+        formlyConfigProvider.setType({
+            name: 'colorInput',
+            extends: 'horizontalInput',
+            template: [
+                '<div class="input-group">',
+                '<input type="text" class="form-control" value="{{convertColor()}}" style="background-color: {{convertColor()}}"/>',
+                '<span class="input-group-btn input-group-btn2">',
+                '<button colorpicker="rgb" ng-model="model[options.key]" class="btn btn-default" type="button"><i class="fa fa-eyedropper" aria-hidden="true"></i></input>',
+                '</div>'
+            ].join(' '),
+            controller: function ($scope) {
+                $scope.convertColor = function () {
+                    if ($scope.model.color === undefined || $scope.model.color === null) {
+                        return "";
+                    }
+
+                    return $scope.model.color.replace("rgb", "rgba").replace(")", ",0.5)");
                 }
             }
         });
@@ -5196,7 +5386,7 @@ function ConfigService($http, $q, $cacheFactory, bootstrapped) {
     }
 }
 /*
- *  (C) Copyright 2017 TheOtherP (theotherp@gmx.de)
+ *  (C) Copyright 2017 TheOtherP (theotherp@posteo.net)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -5299,7 +5489,8 @@ function ConfigFields($injector) {
                                 type: 'text',
                                 label: 'URL base',
                                 placeholder: '/nzbhydra',
-                                help: 'Adapt when using a reverse proxy. See <a href="https://github.com/theotherp/nzbhydra2/wiki/Exposing-Hydra-to-the-internet-and-using-reverse-proxies" target="_blank">wiki</a>. Always use when calling Hydra, even locally.'
+                                help: 'Adapt when using a reverse proxy. See <a href="https://github.com/theotherp/nzbhydra2/wiki/Exposing-Hydra-to-the-internet-and-using-reverse-proxies" target="_blank">wiki</a>. Always use when calling Hydra, even locally.',
+                                tooltip: 'If you use Hydra behind a reverse proxy you might want to set the URL base to a value like "/nzbhydra". If you accesses Hydra with tools running outside your network (for example from your phone) set the external URL so that it matches the full Hydra URL. That way the NZB links returned in the search results refer to your global URL and not your local address.'
                             },
                             validators: {
                                 urlBase: regexValidator(/^((\/.*[^\/])|\/)$/, 'URL base has to start and may not end with /', false, true)
@@ -5312,7 +5503,8 @@ function ConfigFields($injector) {
                             templateOptions: {
                                 type: 'switch',
                                 label: 'Use SSL',
-                                help: 'Requires restart.'
+                                help: 'Requires restart.',
+                                tooltip: 'You can use SSL but I recommend using a reverse proxy with SSL. See the wiki for notes regarding reverse proxies and SSL. It\'s more secure and can be configured better.'
                             }
                         },
                         {
@@ -5323,7 +5515,7 @@ function ConfigFields($injector) {
                                 label: 'SSL keystore file',
                                 required: true,
                                 type: "file",
-                                help: 'Requires restart. See <a href="https://github.com/theotherp/nzbhydra2/wiki/SSL" target="_blank">wiki</a>'
+                                help: 'Requires restart. See <a href="https://github.com/theotherp/nzbhydra2/wiki/SSL" target="_blank">wiki</a>.'
                             }
                         },
                         {
@@ -5336,7 +5528,7 @@ function ConfigFields($injector) {
                                 required: true,
                                 help: 'Requires restart.'
                             }
-                        },
+                        }
 
 
                     ]
@@ -5344,7 +5536,8 @@ function ConfigFields($injector) {
                 {
                     wrapper: 'fieldset',
                     templateOptions: {
-                        label: 'Proxy'
+                        label: 'Proxy',
+                        tooltip: 'You can select to use either a SOCKS or an HTTPS proxy. All outside connections will be done via the configured proxy.'
                     }
                     ,
                     fieldGroup: [
@@ -5432,7 +5625,6 @@ function ConfigFields($injector) {
                             templateOptions: {
                                 type: 'select',
                                 label: 'Theme',
-                                help: 'Reload page after restart.',
                                 options: [
                                     {name: 'Grey', value: 'grey'},
                                     {name: 'Bright', value: 'bright'},
@@ -5485,6 +5677,15 @@ function ConfigFields($injector) {
                             }
                         },
                         {
+                            key: 'disableSslLocally',
+                            type: 'horizontalSwitch',
+                            templateOptions: {
+                                type: 'text',
+                                label: 'Disable SSL locally',
+                                help: 'Disable SSL for local hosts.'
+                            }
+                        },
+                        {
                             key: 'sniDisabledFor',
                             type: 'horizontalChips',
                             templateOptions: {
@@ -5507,7 +5708,10 @@ function ConfigFields($injector) {
                 {
                     wrapper: 'fieldset',
                     key: 'logging',
-                    templateOptions: {label: 'Logging'},
+                    templateOptions: {
+                        label: 'Logging',
+                        tooltip: 'The base settings should suffice for most users. If you want you can enable logging of IP adresses for failed logins and NZB downloads.',
+                    },
                     fieldGroup: [
                         {
                             key: 'logfilelevel',
@@ -5549,20 +5753,31 @@ function ConfigFields($injector) {
                             }
                         },
                         {
+                            key: 'logGc',
+                            type: 'horizontalSwitch',
+                            templateOptions: {
+                                type: 'switch',
+                                label: 'Log GC',
+                                help: 'Enable garbage collection logging. Only for debugging of memory issues.'
+                            }
+                        },
+                        {
                             key: 'logIpAddresses',
                             type: 'horizontalSwitch',
                             templateOptions: {
                                 type: 'switch',
                                 label: 'Log IP addresses'
                             }
-                        }, {
+                        },
+                        {
                             key: 'mapIpToHost',
                             type: 'horizontalSwitch',
                             hideExpression: '!model.logIpAddresses',
                             templateOptions: {
                                 type: 'switch',
                                 label: 'Map hosts',
-                                help: 'Try to map logged IP addresses to host names.'
+                                help: 'Try to map logged IP addresses to host names.',
+                                tooltip: 'Enabling this may cause NZBHydra to load very, very slowly when accessed remotely.'
                             }
                         },
                         {
@@ -5576,11 +5791,12 @@ function ConfigFields($injector) {
                         {
                             key: 'markersToLog',
                             type: 'horizontalMultiselect',
+                            hideExpression: 'model.consolelevel !== "DEBUG" && model.logfilelevel !== "DEBUG"',
                             templateOptions: {
                                 label: 'Log markers',
                                 help: 'Select certain sections for more output on debug level.',
-                                hideExpression: 'model.consolelevel !== "DEBUG" && model.logfilelevel !== "DEBUG"', //Doesn't work...
                                 options: [
+                                    {label: 'API limits', id: 'LIMITS'},
                                     {label: 'Config file handling', id: 'CONFIG_READ_WRITE'},
                                     {label: 'Download status updating', id: 'DOWNLOAD_STATUS_UPDATE'},
                                     {label: 'Duplicate detection', id: 'DUPLICATES'},
@@ -5625,7 +5841,7 @@ function ConfigFields($injector) {
                             type: 'horizontalInput',
                             templateOptions: {
                                 label: 'Backup folder',
-                                help: 'Either relative to the NZBHydra main folder or an absolute folder'
+                                help: 'Either relative to the NZBHydra data folder or an absolute folder.'
                             }
                         },
                         {
@@ -5699,7 +5915,8 @@ function ConfigFields($injector) {
                             templateOptions: {
                                 type: 'switch',
                                 label: 'Keep history',
-                                help: 'If disabled no search or download history will be kept. These sections will be hidden in the GUI. You won\'t be able to see stats. The database will still contain a short-lived history of transactions that are kept for 24 hours.'
+                                help: 'Controls search and download history.',
+                                tooltip: 'If disabled no search or download history will be kept. These sections will be hidden in the GUI. You won\'t be able to see stats. The database will still contain a short-lived history of transactions that are kept for 24 hours.'
                             }
                         },
                         {
@@ -5734,6 +5951,53 @@ function ConfigFields($injector) {
                 },
                 {
                     wrapper: 'fieldset',
+                    templateOptions: {
+                        label: 'Database',
+                        tooltip: 'You should not change these values unless you\'re either told to or really know what you\'re doing.'
+                    },
+                    fieldGroup: [
+                        {
+                            key: 'databaseCompactTime',
+                            type: 'horizontalInput',
+                            templateOptions: {
+                                type: 'number',
+                                label: 'Database compact time',
+                                addonRight: {
+                                    text: 'ms'
+                                },
+                                min: 200,
+                                help: 'The time the database is given to compact (reduce size) when shutting down. Reduce this if shutting down NZBHydra takes too long (database size may increase). Takes effect on next restart.'
+                            }
+                        },
+                        {
+                            key: 'databaseRetentionTime',
+                            type: 'horizontalInput',
+                            templateOptions: {
+                                type: 'number',
+                                label: 'Database retention time',
+                                addonRight: {
+                                    text: 'ms'
+                                },
+                                help: 'How long the db should retain old, persisted data. See <a href="https://www.h2database.com/html/commands.html#set_retention_time">here</a>.'
+                            }
+                        },
+                        {
+                            key: 'databaseWriteDelay',
+                            type: 'horizontalInput',
+                            templateOptions: {
+                                type: 'number',
+                                label: 'Database write delay',
+                                addonRight: {
+                                    text: 'ms'
+                                },
+                                help: 'Maximum delay between a commit and flushing the log, in milliseconds. See <a href="https://www.h2database.com/html/commands.html#set_write_delay">here</a>.'
+                            }
+                        }
+
+                    ]
+                },
+                {
+                    wrapper: 'fieldset',
                     templateOptions: {label: 'Other'},
                     fieldGroup: [
                         {
@@ -5763,20 +6027,7 @@ function ConfigFields($injector) {
                                     text: 'MB'
                                 },
                                 min: 128,
-                                help: '256 should suffice except when working with big databases / many indexers. See <a href="https://github.com/theotherp/nzbhydra2/wiki/Memory-requirements" target="_blank">wiki</a>'
-                            }
-                        },
-                        {
-                            key: 'databaseCompactTime',
-                            type: 'horizontalInput',
-                            templateOptions: {
-                                type: 'number',
-                                label: 'Database compact time',
-                                addonRight: {
-                                    text: 'ms'
-                                },
-                                min: 200,
-                                help: 'The time the database is given to compact (reduce size) when shutting down. Reduce this if shutting down NZBHydra takes too long (database size may increase). Takes effect on next restart.'
+                                help: '256 should suffice except when working with big databases / many indexers. See <a href="https://github.com/theotherp/nzbhydra2/wiki/Memory-requirements" target="_blank">wiki</a>.'
                             }
                         }
                     ]
@@ -5788,7 +6039,8 @@ function ConfigFields($injector) {
                 {
                     wrapper: 'fieldset',
                     templateOptions: {
-                        label: 'Indexer access'
+                        label: 'Indexer access',
+                        tooltip: 'Settings that control how communication with indexers is done and how to handle errors while doing that.'
                     },
                     fieldGroup: [
                         {
@@ -5798,9 +6050,39 @@ function ConfigFields($injector) {
                                 type: 'number',
                                 label: 'Timeout when accessing indexers',
                                 help: 'Any web call to an indexer taking longer than this is aborted.',
+                                min: 1,
                                 addonRight: {
                                     text: 'seconds'
                                 }
+                            }
+                        },
+                        {
+                            key: 'userAgent',
+                            type: 'horizontalInput',
+                            templateOptions: {
+                                type: 'text',
+                                label: 'User agent',
+                                help: 'Used when accessing indexers.',
+                                required: true,
+                                tooltip: 'Some indexers don\'t seem to like Hydra and disable access based on the user agent. You can change it here if you want. Please leave it as it is if you have no problems. This allows indexers to gather better statistics on how their API services are used.'
+                            }
+                        },
+                        {
+                            key: 'userAgents',
+                            type: 'horizontalChips',
+                            templateOptions: {
+                                type: 'text',
+                                label: 'Map user agents',
+                                help: 'Used to map the user agent from accessing services to the service names. Apply words with return key.'
+                            }
+                        },
+                        {
+                            key: 'ignoreLoadLimitingForInternalSearches',
+                            type: 'horizontalSwitch',
+                            templateOptions: {
+                                type: 'switch',
+                                label: 'Ignore load limiting internally',
+                                help: 'When enabled load limiting defined for indexers will be ignored for internal searches.'
                             }
                         },
                         {
@@ -5809,7 +6091,57 @@ function ConfigFields($injector) {
                             templateOptions: {
                                 type: 'switch',
                                 label: 'Ignore temporary errors',
-                                help: "If enabled indexers will not be temporarily disabled after an error. Unrecoverable errors (e.g. wrong API key) will still disable the indexer."
+                                tooltip: "By default if access to an indexer fails the indexer is disabled for a certain amount of time (for a short while first, then increasingly longer if the problems persist). Disable this and always try these indexers."
+                            }
+                        }
+                    ]
+                }, {
+                    wrapper: 'fieldset',
+                    templateOptions: {
+                        label: 'Category handling',
+                        tooltip: 'Settings that control the handling of newznab categories (e.g. 2000 for Movies).'
+                    },
+                    fieldGroup: [
+
+                        {
+                            key: 'transformNewznabCategories',
+                            type: 'horizontalSwitch',
+                            templateOptions: {
+                                type: 'switch',
+                                label: 'Transform newznab categories',
+                                help: 'Map newznab categories from API searches to configured categories and use all configured newznab categories in searches.'
+                            }
+                        },
+                        {
+                            key: 'sendTorznabCategories',
+                            type: 'horizontalSwitch',
+                            templateOptions: {
+                                type: 'switch',
+                                label: 'Send categories to trackers',
+                                help: 'If disabled no categories will be included in queries to torznab indexers (trackers).'
+                            }
+                        }
+                    ]
+                },
+                {
+                    wrapper: 'fieldset',
+                    templateOptions: {
+                        label: 'Media IDs / Query generation',
+                        tooltip: 'Raw search engines like Binsearch don\'t support searches based on IDs (e.g. for a movie using an IMDB id). You can enable query generation for these. Hydra will then try to retrieve the movie\'s or show\'s title and generate a query, for example "showname s01e01". In some cases an ID based search will not provide any results. You can enable a fallback so that in such a case the search will be repeated with a query using the title of the show or movie.'
+                    },
+                    fieldGroup: [
+                        {
+                            key: 'alwaysConvertIds',
+                            type: 'horizontalSelect',
+                            templateOptions: {
+                                label: 'Always convert media IDs for...',
+                                options: [
+                                    {name: 'Internal searches', value: 'INTERNAL'},
+                                    {name: 'API searches', value: 'API'},
+                                    {name: 'All searches', value: 'BOTH'},
+                                    {name: 'Never', value: 'NONE'}
+                                ],
+                                help: "When enabled media ID conversions will always be done even when an indexer supports the already known ID(s)."
                             }
                         },
                         {
@@ -5838,38 +6170,6 @@ function ConfigFields($injector) {
                                     {name: 'Never', value: 'NONE'}
                                 ],
                                 help: "When no results were found for a query ID search again using a generated query (on indexer level)."
-                            }
-                        },
-                        {
-                            key: 'alwaysConvertIds',
-                            type: 'horizontalSelect',
-                            templateOptions: {
-                                label: 'Always convert media IDs for...',
-                                options: [
-                                    {name: 'Internal searches', value: 'INTERNAL'},
-                                    {name: 'API searches', value: 'API'},
-                                    {name: 'All searches', value: 'BOTH'},
-                                    {name: 'Never', value: 'NONE'}
-                                ],
-                                help: "When enabled media ID conversions will always be done even when an indexer supports the already known ID(s)."
-                            }
-                        },
-                        {
-                            key: 'transformNewznabCategories',
-                            type: 'horizontalSwitch',
-                            templateOptions: {
-                                type: 'switch',
-                                label: 'Transform newznab categories',
-                                help: 'Map newznab categories from API searches to configured categories and use all configured newznab categories in searches.'
-                            }
-                        },
-                        {
-                            key: 'sendTorznabCategories',
-                            type: 'horizontalSwitch',
-                            templateOptions: {
-                                type: 'switch',
-                                label: 'Send categories to trackers',
-                                help: 'If disabled no categories will be included in queries to torznab indexers (trackers).'
                             }
                         },
                         {
@@ -6104,41 +6404,14 @@ function ConfigFields($injector) {
                                     value: "yo"
                                 }, {"name": "Zhuang", value: "za"}, {"name": "Zulu", value: "zu"}]
                             }
-                        },
-                        {
-                            key: 'userAgent',
-                            type: 'horizontalInput',
-                            templateOptions: {
-                                type: 'text',
-                                label: 'User agent',
-                                help: 'Used when accessing indexers.',
-                                required: true
-                            }
-                        },
-                        {
-                            key: 'userAgents',
-                            type: 'horizontalChips',
-                            templateOptions: {
-                                type: 'text',
-                                label: 'Map user agents',
-                                help: 'Used to map the user agent from accessing services to the service names. Apply words with return key.'
-                            }
-                        },
-                        {
-                            key: 'ignoreLoadLimitingForInternalSearches',
-                            type: 'horizontalSwitch',
-                            templateOptions: {
-                                type: 'switch',
-                                label: 'Ignore load limiting internally',
-                                help: 'When enabled load limiting defined for indexers will be ignored for internal searches.'
-                            }
                         }
                     ]
                 },
                 {
                     wrapper: 'fieldset',
                     templateOptions: {
-                        label: 'Result filters'
+                        label: 'Result filters',
+                        tooltip: 'This section allows you to define global filters which will be applied to all search results. You can define words and regexes which must or must not be matched for a search result to be matched. You can also exclude certain usenet posters and groups which are known for spamming. You can define forbidden and required words for categories in the next tab (Categories). Usually required or forbidden words are applied on a word base, so they must form a complete word in a title. Only if they contain a dash or a dot they may appear anywhere in the title. Example: "ea" matches "something.from.ea" but not "release.from.other". "web-dl" matches "title.web-dl" and "someweb-dl".'
                     },
                     fieldGroup: [
                         {
@@ -6161,7 +6434,8 @@ function ConfigFields($injector) {
                             templateOptions: {
                                 type: 'text',
                                 label: 'Forbidden words',
-                                help: "Results with any of these words in the title will be ignored. Title is converted to lowercase before. Apply words with return key."
+                                help: "Results with any of these words in the title will be ignored. Title is converted to lowercase before. Apply words with return key.",
+                                tooltip: 'One forbidden word in a result title dismisses the result.'
                             },
                             hideExpression: function () {
                                 return rootModel.searching.applyRestrictions === "NONE";
@@ -6173,7 +6447,7 @@ function ConfigFields($injector) {
                             templateOptions: {
                                 type: 'text',
                                 label: 'Forbidden regex',
-                                help: 'Must not be present in a title (case is ignored)'
+                                help: 'Must not be present in a title (case is ignored).'
                             },
                             hideExpression: function () {
                                 return rootModel.searching.applyRestrictions === "NONE";
@@ -6185,7 +6459,8 @@ function ConfigFields($injector) {
                             templateOptions: {
                                 type: 'text',
                                 label: 'Required words',
-                                help: "Only results with titles that contain *all* words will be used. Title is converted to lowercase before. Apply words with return key."
+                                help: "Only results with titles that contain *all* words will be used. Title is converted to lowercase before. Apply words with return key.",
+                                tooltip: 'If any of the required words is not found anywhere in a result title it\'s also dismissed.'
                             },
                             hideExpression: function () {
                                 return rootModel.searching.applyRestrictions === "NONE";
@@ -6197,7 +6472,7 @@ function ConfigFields($injector) {
                             templateOptions: {
                                 type: 'text',
                                 label: 'Required regex',
-                                help: 'Must be present in a title (case is ignored)'
+                                help: 'Must be present in a title (case is ignored).'
                             },
                             hideExpression: function () {
                                 return rootModel.searching.applyRestrictions === "NONE";
@@ -6226,6 +6501,15 @@ function ConfigFields($injector) {
                             }
                         },
                         {
+                            key: 'languagesToKeep',
+                            type: 'horizontalChips',
+                            templateOptions: {
+                                type: 'text',
+                                label: 'Languages to keep',
+                                help: 'If an indexer returns the language in the results only those results with configured languages will be used. Apply words with return key.'
+                            }
+                        },
+                        {
                             key: 'maxAge',
                             type: 'horizontalInput',
                             templateOptions: {
@@ -6238,12 +6522,22 @@ function ConfigFields($injector) {
                             }
                         },
                         {
+                            key: 'minSeeders',
+                            type: 'horizontalInput',
+                            templateOptions: {
+                                type: 'number',
+                                label: 'Minimum # seeders',
+                                help: 'Torznab results with fewer seeders will be ignored.'
+                            }
+                        },
+                        {
                             key: 'ignorePassworded',
                             type: 'horizontalSwitch',
                             templateOptions: {
                                 type: 'switch',
                                 label: 'Ignore passworded releases',
-                                help: "Not all indexers provide this information"
+                                help: "Not all indexers provide this information",
+                                tooltip: 'Some indexers provide information if a release is passworded. If you select to ignore these releases only those will be ignored of which I know for sure that they\'re actually passworded.'
                             }
                         }
                     ]
@@ -6260,9 +6554,90 @@ function ConfigFields($injector) {
                             templateOptions: {
                                 type: 'text',
                                 label: 'Wrap API errors in empty results page',
-                                help: 'When enabled accessing tools will think the search was completed successfully but without results.'
+                                help: 'When enabled accessing tools will think the search was completed successfully but without results.',
+                                tooltip: 'In (hopefully) rare cases Hydra may crash when processing an API search request. You can enable to return an empty search page in these cases (if Hydra hasn\'t crashed altogether ). This means that the calling tool (e.g. Sonarr) will think that the indexer (Hydra) is fine but just didn\'t return a result. That way Hydra won\'t be disabled as indexer but on the downside you may not be directly notified that an error occurred.'
                             }
                         },
+                        {
+                            key: 'removeTrailing',
+                            type: 'horizontalChips',
+                            templateOptions: {
+                                type: 'text',
+                                label: 'Remove trailing...',
+                                help: 'Removed from title if it ends with either of these. Case insensitive and disregards leading/trailing spaces. Allows wildcards ("*"). Apply words with return key.',
+                                tooltip: 'Hydra contains a predefined list of words which will be removed if a search result title ends with them. This allows better duplicate detection and cleans up the titles. Trailing words will be removed until none of the defined strings are found at the end of the result title.'
+                            }
+                        },
+                        {
+                            key: 'useOriginalCategories',
+                            type: 'horizontalSwitch',
+                            templateOptions: {
+                                type: 'switch',
+                                label: 'Use original categories',
+                                help: 'Enable to use the category descriptions provided by the indexer.',
+                                tooltip: 'Hydra attempts to parse the provided newznab category IDs for results and map them to the configured categories. In some cases this may lead to category names which are not quite correct. You can select to use the original category name used by the indexer. This will only affect which category name is shown in the results.'
+                            }
+                        }
+                    ]
+                }, {
+                    wrapper: 'fieldset',
+                    templateOptions: {
+                        label: 'Result display'
+                    },
+                    fieldGroup: [
+                        {
+                            key: 'loadAllCachedOnInternal',
+                            type: 'horizontalSwitch',
+                            templateOptions: {
+                                type: 'switch',
+                                label: 'Display all retrieved results',
+                                help: 'Load all results already retrieved from indexers. Might make sorting / filtering a bit slower. Will still be paged according to the limit set above.'
+                            }
+                        },
+                        {
+                            key: 'showQuickFilterButtons',
+                            type: 'horizontalSwitch',
+                            templateOptions: {
+                                type: 'switch',
+                                label: 'Show quick filter',
+                                help: 'Show quick filter buttons for movie and TV results.'
+                            }
+                        },
+                        {
+                            key: 'loadLimitInternal',
+                            type: 'horizontalInput',
+                            templateOptions: {
+                                type: 'number',
+                                label: 'Display...',
+                                addonRight: {
+                                    text: 'results per page'
+                                },
+                                max: 500,
+                                required: true,
+                                help: 'Determines the number of results shown on one page. This might also cause more API hits because indexers are queried until the number of results is matched or all indexers are exhausted. Limit is 500.'
+                            }
+                        },
+                        {
+                            key: 'coverSize',
+                            type: 'horizontalInput',
+                            templateOptions: {
+                                type: 'number',
+                                label: 'Cover width',
+                                addonRight: {
+                                    text: 'px'
+                                },
+                                required: true,
+                                help: 'Determines width of covers in search results (when enabled in display options).'
+                            }
+                        }
+                    ]
+                }, {
+                    wrapper: 'fieldset',
+                    templateOptions: {
+                        label: 'Duplicate detection',
+                        tooltip: 'Hydra tries to find duplicate results from different indexers using heuristics. You can control the parameters for that but usually the default values work quite well.'
+                    },
+                    fieldGroup: [
                         {
                             key: 'duplicateSizeThresholdInPercent',
                             type: 'horizontalPercentInput',
@@ -6287,72 +6662,6 @@ function ConfigFields($injector) {
                                     text: 'hours'
                                 }
                             }
-                        },
-                        {
-                            key: 'removeTrailing',
-                            type: 'horizontalChips',
-                            templateOptions: {
-                                type: 'text',
-                                label: 'Remove trailing...',
-                                help: 'Removed from title if it ends with either of these. Case insensitive and disregards leading/trailing spaces. Allows wildcards ("*"). Apply words with return key.'
-                            }
-                        },
-                        {
-                            key: 'useOriginalCategories',
-                            type: 'horizontalSwitch',
-                            templateOptions: {
-                                type: 'switch',
-                                label: 'Use original categories',
-                                help: 'Enable to use the category descriptions provided by the indexer.'
-                            }
-                        },
-                        {
-                            key: 'nzbAccessType',
-                            type: 'horizontalSelect',
-                            templateOptions: {
-                                type: 'select',
-                                label: 'NZB access type',
-                                options: [
-                                    {name: 'Proxy NZBs from indexer', value: 'PROXY'},
-                                    {name: 'Redirect to the indexer', value: 'REDIRECT'}
-                                ],
-                                help: "How access to NZBs is provided when NZBs are downloaded (by the user or external tools). Redirecting is recommended."
-                            }
-                        },
-                        {
-                            key: 'loadLimitInternal',
-                            type: 'horizontalInput',
-                            templateOptions: {
-                                type: 'number',
-                                label: 'Display...',
-                                addonRight: {
-                                    text: 'results per page'
-                                },
-                                max: 500,
-                                required: true,
-                                help: 'Determines the number of results shown on one page. This might also cause more API hits because indexers are queried until the number of results is matched or all indexers are exhausted. Limit is 500.'
-                            }
-                        },
-                        {
-                            key: 'loadAllCachedOnInternal',
-                            type: 'horizontalSwitch',
-                            templateOptions: {
-                                type: 'switch',
-                                label: 'Display all retrieved results',
-                                help: 'Load all results already retrieved from indexers. Might make sorting / filtering a bit slower. Will still be paged according to the limit set above.'
-                            }
-                        },
-                        {
-                            key: 'globalCacheTimeMinutes',
-                            type: 'horizontalInput',
-                            templateOptions: {
-                                type: 'number',
-                                label: 'Results cache time',
-                                help: 'When set search results will be cached for this time. Any search with the same parameters will return the cached results. API cache time parameters will be preferred. See <a href="https://github.com/theotherp/nzbhydra2/wiki/External-API,-RSS-and-cached-queries" target="_blank">wiki</a>.',
-                                addonRight: {
-                                    text: 'minutes'
-                                }
-                            }
                         }
 
                     ]
@@ -6373,29 +6682,19 @@ function ConfigFields($injector) {
                                     text: 'days'
                                 },
                                 required: true,
-                                help: 'Meta data from searches is stored in the database. When they\'re deleted existing links to Hydra become invalid.'
+                                tooltip: 'Found results are stored in the database for this long until they\'re deleted. After that any links to Hydra results still stored elsewhere become invalid. You can increase the limit if you want, the disc space needed is negligible (about 75 MB for 7 days on my server).'
                             }
                         },
                         {
-                            key: 'showQuickFilterButtons',
-                            type: 'horizontalSwitch',
-                            templateOptions: {
-                                type: 'switch',
-                                label: 'Show quick filter',
-                                help: 'Show quick filter buttons for movie and TV results.'
-                            }
-                        },
-                        {
-                            key: 'coverSize',
+                            key: 'globalCacheTimeMinutes',
                             type: 'horizontalInput',
                             templateOptions: {
                                 type: 'number',
-                                label: 'Cover width',
+                                label: 'Results cache time',
+                                help: 'When set search results will be cached for this time. Any search with the same parameters will return the cached results. API cache time parameters will be preferred. See <a href="https://github.com/theotherp/nzbhydra2/wiki/External-API,-RSS-and-cached-queries" target="_blank">wiki</a>.',
                                 addonRight: {
-                                    text: 'px'
-                                },
-                                required: true,
-                                help: 'Determines width of covers in search results (when enabled in display options)'
+                                    text: 'minutes'
+                                }
                             }
                         }
                     ]
@@ -6409,7 +6708,8 @@ function ConfigFields($injector) {
                     templateOptions: {
                         type: 'switch',
                         label: 'Category sizes',
-                        help: "Preset min and max sizes depending on the selected category"
+                        help: "Preset min and max sizes depending on the selected category",
+                        tooltip: 'Preset range of minimum and maximum sizes for its categories. When you select a category in the search area the appropriate fields are filled with these values.'
                     }
                 },
                 {
@@ -6446,6 +6746,7 @@ function ConfigFields($injector) {
                     model: rootModel.categoriesConfig,
                     templateOptions: {
                         btnText: 'Add new category',
+                        headline: 'Categories',
                         fields: [
                             {
                                 key: 'name',
@@ -6516,7 +6817,7 @@ function ConfigFields($injector) {
                                 templateOptions: {
                                     type: 'text',
                                     label: 'Required regex',
-                                    help: 'Must be present in a title (case is ignored)'
+                                    help: 'Must be present in a title (case is ignored).'
                                 }
                             },
                             {
@@ -6534,7 +6835,7 @@ function ConfigFields($injector) {
                                 templateOptions: {
                                     type: 'text',
                                     label: 'Forbidden regex',
-                                    help: 'Must not be present in a title (case is ignored)'
+                                    help: 'Must not be present in a title (case is ignored).'
                                 }
                             },
                             {
@@ -6578,7 +6879,10 @@ function ConfigFields($injector) {
                                 templateOptions: {
                                     type: 'text',
                                     label: 'Newznab categories',
-                                    help: 'Map newznab categories to Hydra categories. Used for parsing and when searching internally. Apply categories with return key. You can combine categories which must be all present by using "&".'
+                                    help: 'Map newznab categories to Hydra categories. Used for parsing and when searching internally. Apply categories with return key.',
+                                    tooltip: 'Hydra tries to map API search (newnzab) categories to its internal list of categories, going from specific to general. Example: If an API search is done with a catagory that matches those of "Movies HD" the settings for that category are used. Otherwise it checks if it matches the "Movies" category and, if yes, uses that one. If that one doesn\'t match no category settings are used.<br><br>' +
+                                        'Related to that you must also define the newznab categories for every Hydra category, e.g. decide if the category for foreign movies (2010) is used for movie searches. This also controls the category mapping described above. You may combine newznab categories using "&" to require multiple numbers to be present in a result. For example "2010&11000" would require a search result to contain both 2010 and 11000 for that category to match.<br><br>' +
+                                        'Note: When an API search defines categories the internal mapping is only used for the forbidden and required words. The search requests to your newznab indexers will still use the categories from the original request, not the ones configured here.'
                                 }
                             },
                             {
@@ -6592,7 +6896,8 @@ function ConfigFields($injector) {
                                         {name: 'For API searches', value: 'API'},
                                         {name: 'Never', value: 'NONE'}
                                     ],
-                                    help: "Ignore results from this category"
+                                    help: "Ignore results from this category",
+                                    tooltip: 'If you want you can entirely ignore results from categories. Results from these categories will not show in the searches. If you select "Internal" or "Always" this category will also not be selectable on the search page.'
                                 }
                             }
 
@@ -6620,15 +6925,57 @@ function ConfigFields($injector) {
             downloading: [
                 {
                     wrapper: 'fieldset',
-                    templateOptions: {label: 'General'},
+                    templateOptions: {
+                        label: 'General',
+                        tooltip: 'Hydra allows sending NZB search results directly to downloaders (NZBGet, sabnzbd). Torrent downloaders are not supported.'
+                    },
                     fieldGroup: [
                         {
                             key: 'saveTorrentsTo',
                             type: 'fileInput',
                             templateOptions: {
                                 label: 'Torrent black hole',
-                                help: 'When the "Torrent" button is clicked torrents will be saved to this folder on the server. Ignored if not set.',
+                                help: 'Allow torrents to be saved in this folder from the search results. Ignored if not set.',
                                 type: "folder"
+                            }
+                        },
+                        {
+                            key: 'saveNzbsTo',
+                            type: 'fileInput',
+                            templateOptions: {
+                                label: 'NZB black hole',
+                                help: 'Allow NZBs to be saved in this folder from the search results. Ignored if not set.',
+                                type: "folder"
+                            }
+                        },
+                        {
+                            key: 'nzbAccessType',
+                            type: 'horizontalSelect',
+                            templateOptions: {
+                                type: 'select',
+                                label: 'NZB access type',
+                                options: [
+                                    {name: 'Proxy NZBs from indexer', value: 'PROXY'},
+                                    {name: 'Redirect to the indexer', value: 'REDIRECT'}
+                                ],
+                                help: "How access to NZBs is provided when NZBs are downloaded (by the user or external tools). Proxying is recommended as it allows fallback for failed downloads (see below)..",
+                                tooltip: 'NZB downloads from Hydra can either be achieved by redirecting the requester to the original indexer or by downloading the NZB from the indexer and serving this. Redirecting has the advantage that it causes the least load on Hydra but also the disadvantage that the requester might be forwarded to an indexer link that contains the indexer\'s API key. To prevent that select to proxy NZBs. It also allows fallback for failed downloads (next option).'
+                            }
+                        },
+                        {
+                            key: 'fallbackForFailed',
+                            type: 'horizontalSelect',
+                            hideExpression: 'model.nzbAccessType === "REDIRECT"',
+                            templateOptions: {
+                                label: 'Fallback for failed downloads',
+                                options: [
+                                    {name: 'GUI downloads', value: 'INTERNAL'},
+                                    {name: 'API downloads', value: 'API'},
+                                    {name: 'All downloads', value: 'BOTH'},
+                                    {name: 'Never', value: 'NONE'}
+                                ],
+                                help: "Fallback to similar results when a download fails. Only available when proxying NZBs (see above).",
+                                tooltip: "When you or an external program tries to download an NZB from NZBHydra the download may fail because the indexer is offline or its download limit has been reached. You can use this setting for NZBHydra to try and fall back on results from other indexers. It will search for results with the same name that were the result from the same search as where the download originated from. It will *not* execute another search."
                             }
                         },
                         {
@@ -6684,134 +7031,155 @@ function ConfigFields($injector) {
             ],
             auth: [
                 {
-                    key: 'authType',
-                    type: 'horizontalSelect',
+                    wrapper: 'fieldset',
                     templateOptions: {
-                        label: 'Auth type',
-                        options: [
-                            {name: 'None', value: 'NONE'},
-                            {name: 'HTTP Basic auth', value: 'BASIC'},
-                            {name: 'Login form', value: 'FORM'}
-                        ]
-                    }
-                },
-                {
-                    key: 'authHeader',
-                    type: 'horizontalInput',
-                    templateOptions: {
-                        type: 'string',
-                        label: 'Auth header',
-                        help: 'Name of header that provides the username in requests from secure sources.'
+                        label: 'Main',
+
                     },
-                    hideExpression: function () {
-                        return rootModel.auth.authType === "NONE";
-                    }
-                },
-                {
-                    key: 'authHeaderIpRanges',
-                    type: 'horizontalChips',
-                    templateOptions: {
-                        type: 'text',
-                        label: 'Secure IP ranges',
-                        help: 'IP ranges from which the auth header will be accepted. Apply with return key. Use values like "192.168.0.1-192.168.0.100" or single IP addresses like "127.0.0.1"'
-                    },
-                    hideExpression: function () {
-                        return rootModel.auth.authType === "NONE" || rootModel.auth.authHeader === null || rootModel.auth.authHeader === undefined || rootModel.auth.authHeader === "";
-                    }
-                },
-                {
-                    key: 'restrictSearch',
-                    type: 'horizontalSwitch',
-                    templateOptions: {
-                        type: 'switch',
-                        label: 'Restrict searching',
-                        help: 'Restrict access to searching.'
-                    },
-                    hideExpression: function () {
-                        return rootModel.auth.authType === "NONE";
-                    }
-                },
-                {
-                    key: 'restrictStats',
-                    type: 'horizontalSwitch',
-                    templateOptions: {
-                        type: 'switch',
-                        label: 'Restrict stats',
-                        help: 'Restrict access to stats.'
-                    },
-                    hideExpression: function () {
-                        return rootModel.auth.authType === "NONE";
-                    }
-                },
-                {
-                    key: 'restrictAdmin',
-                    type: 'horizontalSwitch',
-                    templateOptions: {
-                        type: 'switch',
-                        label: 'Restrict admin',
-                        help: 'Restrict access to admin functions.'
-                    },
-                    hideExpression: function () {
-                        return rootModel.auth.authType === "NONE";
-                    }
-                },
-                {
-                    key: 'restrictDetailsDl',
-                    type: 'horizontalSwitch',
-                    templateOptions: {
-                        type: 'switch',
-                        label: 'Restrict NZB details & DL',
-                        help: 'Restrict NZB details, comments and download links.'
-                    },
-                    hideExpression: function () {
-                        return rootModel.auth.authType === "NONE";
-                    }
-                },
-                {
-                    key: 'restrictIndexerSelection',
-                    type: 'horizontalSwitch',
-                    templateOptions: {
-                        type: 'switch',
-                        label: 'Restrict indexer selection box',
-                        help: 'Restrict visibility of indexer selection box in search. Affects only GUI.'
-                    },
-                    hideExpression: function () {
-                        return rootModel.auth.authType === "NONE";
-                    }
-                },
-                {
-                    key: 'rememberUsers',
-                    type: 'horizontalSwitch',
-                    templateOptions: {
-                        type: 'switch',
-                        label: 'Remember users',
-                        help: 'Remember users with cookie for 14 days.'
-                    },
-                    hideExpression: function () {
-                        return rootModel.auth.authType === "NONE";
-                    }
-                },
-                {
-                    key: 'rememberMeValidityDays',
-                    type: 'horizontalInput',
-                    templateOptions: {
-                        type: 'number',
-                        label: 'Cookie expiry',
-                        help: 'How long users are remembered.',
-                        addonRight: {
-                            text: 'days'
+                    fieldGroup: [
+                        {
+                            key: 'authType',
+                            type: 'horizontalSelect',
+                            templateOptions: {
+                                label: 'Auth type',
+                                options: [
+                                    {name: 'None', value: 'NONE'},
+                                    {name: 'HTTP Basic auth', value: 'BASIC'},
+                                    {name: 'Login form', value: 'FORM'}
+                                ],
+                                tooltip: '<ul>' +
+                                    '<li>With auth type "None" all areas are unrestricted.</li>' +
+                                    '<li>With auth type "Form" the basic page is loaded and login is done via a form.</li>' +
+                                    '<li>With auth type "Basic" you login via basic HTTP authentication. With all areas restricted this is the most secure as nearly no data is loaded from the server before you auth.</li>' +
+                                    '</ul>'
+                            }
+                        },
+                        {
+                            key: 'authHeader',
+                            type: 'horizontalInput',
+                            templateOptions: {
+                                type: 'string',
+                                label: 'Auth header',
+                                help: 'Name of header that provides the username in requests from secure sources.'
+                            },
+                            hideExpression: function () {
+                                return rootModel.auth.authType === "NONE";
+                            }
+                        },
+                        {
+                            key: 'authHeaderIpRanges',
+                            type: 'horizontalChips',
+                            templateOptions: {
+                                type: 'text',
+                                label: 'Secure IP ranges',
+                                help: 'IP ranges from which the auth header will be accepted. Apply with return key. Use values like "192.168.0.1-192.168.0.100" or single IP addresses like "127.0.0.1".'
+                            },
+                            hideExpression: function () {
+                                return rootModel.auth.authType === "NONE" || rootModel.auth.authHeader === null || rootModel.auth.authHeader === undefined || rootModel.auth.authHeader === "";
+                            }
+                        },
+                        {
+                            key: 'rememberUsers',
+                            type: 'horizontalSwitch',
+                            templateOptions: {
+                                type: 'switch',
+                                label: 'Remember users',
+                                help: 'Remember users with cookie for 14 days.'
+                            },
+                            hideExpression: function () {
+                                return rootModel.auth.authType === "NONE";
+                            }
+                        },
+                        {
+                            key: 'rememberMeValidityDays',
+                            type: 'horizontalInput',
+                            templateOptions: {
+                                type: 'number',
+                                label: 'Cookie expiry',
+                                help: 'How long users are remembered.',
+                                addonRight: {
+                                    text: 'days'
+                                }
+                            }
                         }
-                    }
+
+                    ]
                 },
+
                 {
-                    key: 'allowApiStats',
-                    type: 'horizontalSwitch',
+                    wrapper: 'fieldset',
                     templateOptions: {
-                        type: 'switch',
-                        label: 'Allow stats access',
-                        help: 'Allow access to stats via external API.'
-                    }
+                        label: 'Restrictions',
+                        tooltip: 'You can decide for every user if he is allowed to:\n' +
+                            '<ul>\n' +
+                            '<li>view the search page at all</li>\n' +
+                            '<li>view the stats</li>\n' +
+                            '<li>access the admin area (config and control)</li>\n' +
+                            '<li>view links for downloading NZBs and see their details</li>\n' +
+                            '<li>may select which indexers are used for search.</li>\n' +
+                            '</ul>'
+                    },
+                    hideExpression: function () {
+                        return rootModel.auth.authType === "NONE";
+                    },
+                    fieldGroup: [
+                        {
+                            key: 'restrictSearch',
+                            type: 'horizontalSwitch',
+                            templateOptions: {
+                                type: 'switch',
+                                label: 'Restrict searching',
+                                help: 'Restrict access to searching.'
+                            }
+                        },
+                        {
+                            key: 'restrictStats',
+                            type: 'horizontalSwitch',
+                            templateOptions: {
+                                type: 'switch',
+                                label: 'Restrict stats',
+                                help: 'Restrict access to stats.'
+                            }
+                        },
+                        {
+                            key: 'restrictAdmin',
+                            type: 'horizontalSwitch',
+                            templateOptions: {
+                                type: 'switch',
+                                label: 'Restrict admin',
+                                help: 'Restrict access to admin functions.'
+                            }
+                        },
+                        {
+                            key: 'restrictDetailsDl',
+                            type: 'horizontalSwitch',
+                            templateOptions: {
+                                type: 'switch',
+                                label: 'Restrict NZB details & DL',
+                                help: 'Restrict NZB details, comments and download links.'
+                            }
+                        },
+                        {
+                            key: 'restrictIndexerSelection',
+                            type: 'horizontalSwitch',
+                            templateOptions: {
+                                type: 'switch',
+                                label: 'Restrict indexer selection box',
+                                help: 'Restrict visibility of indexer selection box in search. Affects only GUI.'
+                            }
+                        },
+                        {
+                            key: 'allowApiStats',
+                            type: 'horizontalSwitch',
+                            templateOptions: {
+                                type: 'switch',
+                                label: 'Allow stats access',
+                                help: 'Allow access to stats via external API.'
+                            }
+                        }
+                    ]
                 },
+
                 {
                     type: 'repeatSection',
                     key: 'users',
@@ -6822,6 +7190,7 @@ function ConfigFields($injector) {
                     templateOptions: {
                         btnText: 'Add new user',
                         altLegendText: 'Authless',
+                        headline: 'Users',
                         fields: [
                             {
                                 key: 'username',
@@ -6892,6 +7261,7 @@ function ConfigFields($injector) {
         }
     }
 }
+
 
 function handleConnectionCheckFail(ModalService, data, model, whatFailed, deferred) {
     var message;
@@ -7183,17 +7553,6 @@ function ConfigController($scope, $http, activeTab, ConfigService, config, Downl
         });
     };
 
-    $scope.help = function () {
-        var tabName = $scope.allTabs[$scope.activeTab].name;
-        $http.get("internalapi/help/" + tabName).then(function (result) {
-                var html = '<span style="text-align: left;">' + result.data + "</span>";
-                ModalService.open(tabName + " - Help", html, {}, "lg");
-            },
-            function () {
-                growl.error("Error while loading help")
-            })
-    };
-
     $scope.$on('$stateChangeStart',
         function (event, toState, toParams, fromState, fromParams) {
             if ($scope.isSavingNeeded()) {
@@ -7253,6 +7612,7 @@ function UpdateService($http, growl, blockUI, RestartService, RequestsErrorHandl
     var latestVersionIgnored;
     var versionHistory;
     var runInDocker;
+    var automaticUpdateToNotice;
 
 
     return {
@@ -7397,17 +7757,19 @@ function UpdateModalInstanceCtrl($scope, $http, $interval, RequestsErrorHandler)
 
 }
 
-SystemController.$inject = ["$scope", "$state", "activeTab", "$http", "growl", "RestartService", "MigrationService", "ConfigService", "NzbHydraControlService", "RequestsErrorHandler"];angular
+SystemController.$inject = ["$scope", "$state", "activeTab", "simpleInfos", "$http", "growl", "RestartService", "MigrationService", "ConfigService", "NzbHydraControlService", "RequestsErrorHandler"];angular
     .module('nzbhydraApp')
     .controller('SystemController', SystemController);
 
-function SystemController($scope, $state, activeTab, $http, growl, RestartService, MigrationService, ConfigService, NzbHydraControlService, RequestsErrorHandler) {
+function SystemController($scope, $state, activeTab, simpleInfos, $http, growl, RestartService, MigrationService, ConfigService, NzbHydraControlService, RequestsErrorHandler) {
 
     $scope.activeTab = activeTab;
     $scope.foo = {
         csv: "",
         sql: ""
     };
+
+    $scope.simpleInfos = simpleInfos;
 
     $scope.shutdown = function () {
         NzbHydraControlService.shutdown().then(function () {
@@ -8103,16 +8465,23 @@ function SearchService($http) {
     }
 }
 
-SearchResultsController.$inject = ["$stateParams", "$scope", "$q", "$timeout", "$document", "blockUI", "growl", "localStorageService", "SearchService", "ConfigService", "CategoriesService", "DebugService", "GenericStorageService", "ModalService"];angular
+SearchResultsController.$inject = ["$stateParams", "$scope", "$q", "$timeout", "$document", "blockUI", "growl", "localStorageService", "SearchService", "ConfigService", "CategoriesService", "DebugService", "GenericStorageService", "ModalService", "$uibModal"];angular
     .module('nzbhydraApp')
     .controller('SearchResultsController', SearchResultsController);
 
 //SearchResultsController.$inject = ['blockUi'];
-function SearchResultsController($stateParams, $scope, $q, $timeout, $document, blockUI, growl, localStorageService, SearchService, ConfigService, CategoriesService, DebugService, GenericStorageService, ModalService) {
+function SearchResultsController($stateParams, $scope, $q, $timeout, $document, blockUI, growl, localStorageService, SearchService, ConfigService, CategoriesService, DebugService, GenericStorageService, ModalService, $uibModal) {
     // console.time("Presenting");
     DebugService.log("foobar");
     $scope.limitTo = ConfigService.getSafe().searching.loadLimitInternal;
     $scope.offset = 0;
+
+    var indexerColors = {};
+
+    _.each(ConfigService.getSafe().indexers, function (indexer) {
+        indexerColors[indexer.name] = indexer.color;
+    });
+
     //Handle incoming data
 
     $scope.indexersearches = SearchService.getLastResults().indexerSearchMetaDatas;
@@ -8226,7 +8595,10 @@ function SearchResultsController($stateParams, $scope, $q, $timeout, $document, 
         sumGrabs: localStorageService.get("sumGrabs") !== null ? localStorageService.get("sumGrabs") : true,
         scrollToResults: localStorageService.get("scrollToResults") !== null ? localStorageService.get("scrollToResults") : true,
         showCovers: localStorageService.get("showCovers") !== null ? localStorageService.get("showCovers") : true,
-        groupEpisodes: localStorageService.get("groupEpisodes") !== null ? localStorageService.get("groupEpisodes") : true
+        groupEpisodes: localStorageService.get("groupEpisodes") !== null ? localStorageService.get("groupEpisodes") : true,
+        expandGroupsByDefault: localStorageService.get("expandGroupsByDefault") !== null ? localStorageService.get("expandGroupsByDefault") : false,
+        showDownloadedIndicator: localStorageService.get("showDownloadedIndicator") !== null ? localStorageService.get("showDownloadedIndicator") : true,
+        hideAlreadyDownloadedResults: localStorageService.get("hideAlreadyDownloadedResults") !== null ? localStorageService.get("hideAlreadyDownloadedResults") : true
     };
 
 
@@ -8235,7 +8607,10 @@ function SearchResultsController($stateParams, $scope, $q, $timeout, $document, 
     $scope.isShowFilterButtonsTv = $scope.isShowFilterButtons && $stateParams.category.toLowerCase().indexOf("tv") > -1;
 
     $scope.shared = {
-        isGroupEpisodes: $scope.foo.groupEpisodes && $stateParams.category.toLowerCase().indexOf("tv") > -1 && $stateParams.episode === undefined
+        isGroupEpisodes: $scope.foo.groupEpisodes && $stateParams.category.toLowerCase().indexOf("tv") > -1 && $stateParams.episode === undefined,
+        expandGroupsByDefault: $scope.foo.expandGroupsByDefault,
+        showDownloadedIndicator: $scope.foo.showDownloadedIndicator,
+        hideAlreadyDownloadedResults: $scope.foo.hideAlreadyDownloadedResults
     };
 
     if ($scope.shared.isGroupEpisodes) {
@@ -8261,7 +8636,10 @@ function SearchResultsController($stateParams, $scope, $q, $timeout, $document, 
         {id: "sumGrabs", label: "Use sum of grabs / seeders for filtering / sorting of groups"},
         {id: "scrollToResults", label: "Scroll to results when finished"},
         {id: "showCovers", label: "Show movie covers in results"},
-        {id: "groupEpisodes", label: "Group TV results by season/episode"}
+        {id: "groupEpisodes", label: "Group TV results by season/episode"},
+        {id: "expandGroupsByDefault", label: "Expand groups by default"},
+        {id: "showDownloadedIndicator", label: "Show already downloaded indicator"},
+        {id: "hideAlreadyDownloadedResults", label: "Hide already downloaded results"}
     ];
     $scope.optionsSelectedModel = [];
     for (var key in $scope.optionsOptions) {
@@ -8287,9 +8665,15 @@ function SearchResultsController($stateParams, $scope, $q, $timeout, $document, 
             } else if (item.id === "scrollToResults") {
                 toggleScrollToResults(newValue);
             } else if (item.id === "showCovers") {
-                toggleshowCovers(newValue);
+                toggleShowCovers(newValue);
             } else if (item.id === "groupEpisodes") {
-                togglesGroupEpisodes(newValue);
+                toggleGroupEpisodes(newValue);
+            } else if (item.id === "expandGroupsByDefault") {
+                toggleExpandGroups(newValue);
+            } else if (item.id === "showDownloadedIndicator") {
+                toggleDownloadedIndicator(newValue);
+            } else if (item.id === "hideAlreadyDownloadedResults") {
+                toggleHideAlreadyDownloadedResults(newValue);
             }
         }
     };
@@ -8298,34 +8682,62 @@ function SearchResultsController($stateParams, $scope, $q, $timeout, $document, 
         localStorageService.set("duplicatesDisplayed", value);
         $scope.$broadcast("duplicatesDisplayed", value);
         $scope.foo.duplicatesDisplayed = value;
+        $scope.shared.duplicatesDisplayed = value;
     }
 
     function toggleGroupTorrentAndNewznabResults(value) {
         localStorageService.set("groupTorrentAndNewznabResults", value);
         $scope.foo.groupTorrentAndNewznabResults = value;
+        $scope.shared.groupTorrentAndNewznabResults = value;
         blockAndUpdate();
     }
 
     function toggleSumGrabs(value) {
         localStorageService.set("sumGrabs", value);
         $scope.foo.sumGrabs = value;
+        $scope.shared.sumGrabs = value;
         blockAndUpdate();
     }
 
     function toggleScrollToResults(value) {
         localStorageService.set("scrollToResults", value);
         $scope.foo.scrollToResults = value;
+        $scope.shared.scrollToResults = value;
     }
 
-    function toggleshowCovers(value) {
+    function toggleShowCovers(value) {
         localStorageService.set("showCovers", value);
         $scope.foo.showCovers = value;
+        $scope.shared.showCovers = value;
         $scope.$broadcast("toggleShowCovers", value);
     }
 
-    function togglesGroupEpisodes(value) {
+    function toggleGroupEpisodes(value) {
         localStorageService.set("groupEpisodes", value);
         $scope.shared.isGroupEpisodes = value;
+        $scope.foo.isGroupEpisodes = value;
+        blockAndUpdate();
+    }
+
+    function toggleExpandGroups(value) {
+        localStorageService.set("expandGroupsByDefault", value);
+        $scope.shared.isExpandGroupsByDefault = value;
+        $scope.foo.isExpandGroupsByDefault = value;
+        blockAndUpdate();
+    }
+
+    function toggleDownloadedIndicator(value) {
+        localStorageService.set("showDownloadedIndicator", value);
+        $scope.shared.showDownloadedIndicator = value;
+        $scope.foo.showDownloadedIndicator = value;
+        blockAndUpdate();
+    }
+
+    function toggleHideAlreadyDownloadedResults(value) {
+        localStorageService.set("hideAlreadyDownloadedResults", value);
+        $scope.shared.hideAlreadyDownloadedResults = value;
+        $scope.foo.hideAlreadyDownloadedResults = value;
+        console.log("Bo")
         blockAndUpdate();
     }
 
@@ -8372,7 +8784,6 @@ function SearchResultsController($stateParams, $scope, $q, $timeout, $document, 
     function blockAndUpdate() {
         startBlocking("Sorting / filtering...").then(function () {
             $scope.filteredResults = sortAndFilter(allSearchResults);
-            //stopBlocking();
             localStorageService.set("sorting", sortModel);
         });
     }
@@ -8530,7 +8941,7 @@ function SearchResultsController($stateParams, $scope, $q, $timeout, $document, 
                 }
             }
             if ($scope.filterButtonsModel.quality !== null && !_.isEmpty($scope.filterButtonsModel.quality)) {
-                var containsAtLeastOne = false;
+                containsAtLeastOne = false;
                 var anyRequired = false;
                 _.each($scope.filterButtonsModel.quality, function (value, key) { //key is something like 'q720p', value is true or false
                     anyRequired = anyRequired || value;
@@ -8539,6 +8950,10 @@ function SearchResultsController($stateParams, $scope, $q, $timeout, $document, 
                     }
                 });
                 return !anyRequired || containsAtLeastOne;
+            }
+
+            if ($scope.foo.hideAlreadyDownloadedResults && item.downloadedAt !== null) {
+                return false;
             }
 
             return true;
@@ -8587,8 +9002,7 @@ function SearchResultsController($stateParams, $scope, $q, $timeout, $document, 
                     //Sorting a title group internally by title doesn't make sense so fall back to sorting by age so that newest result is at the top
                     return ((10000000000 * hashGroup[0]["indexerscore"]) + hashGroup[0]["epoch"]) * -1;
                 }
-                var sortPredicateValue = getSortPredicateValue(hashGroup[0]);
-                return sortPredicateValue;
+                return getSortPredicateValue(hashGroup[0]);
             }
 
             var grouped = _.groupBy(titleGroup, "hash");
@@ -8618,6 +9032,14 @@ function SearchResultsController($stateParams, $scope, $q, $timeout, $document, 
             return sortPredicateValue
         }
 
+        _.each(results, function (result) {
+            var indexerColor = indexerColors[result.indexer];
+            if (indexerColor === undefined || indexerColor === null) {
+                return "";
+            }
+            console.log(indexerColor);
+            result.style = "background-color: " + indexerColor.replace("rgb", "rgba").replace(")", ",0.5)")
+        });
 
         var filtered = _.filter(results, filter);
         var newSelected = $scope.selected;
@@ -8789,6 +9211,7 @@ function SearchResultsController($stateParams, $scope, $q, $timeout, $document, 
         }
     };
 
+
     $scope.$on("checkboxClicked", function (event, originalEvent, rowIndex, newCheckedValue, clickTargetElement) {
         if (originalEvent.shiftKey && $scope.lastClickedRowIndex !== null) {
             $scope.$broadcast("shiftClick", Number($scope.lastClickedRowIndex), Number(rowIndex), Number($scope.lastClickedValue), $scope.lastClickedElement, clickTargetElement);
@@ -8855,6 +9278,11 @@ function SearchResultsController($stateParams, $scope, $q, $timeout, $document, 
         }, 1);
     });
 
+    $scope.getBgColorForResult = function (result) {
+        console.log(result.indexer);
+        return "background-color: red";
+    }
+
     $timeout(function () {
         DebugService.print();
     }, 3000);
@@ -8903,7 +9331,6 @@ function SearchResultsController($stateParams, $scope, $q, $timeout, $document, 
     }, $scope.limitTo);
 
 }
-
 
 
 SearchHistoryService.$inject = ["$filter", "$http"];angular
@@ -9329,6 +9756,8 @@ function SearchController($scope, $http, $stateParams, $state, $uibModal, $timeo
         $scope.indexers = decodeURIComponent($stateParams.indexers).split(",");
     }
     if (angular.isDefined($stateParams.title) || (angular.isDefined($stateParams.tmdbId) || angular.isDefined($stateParams.imdbId) || angular.isDefined($stateParams.tvmazeId) || angular.isDefined($stateParams.rid) || angular.isDefined($stateParams.tvdbId))) {
+        var width = calculateWidth($stateParams.title) + 30;
+        $scope.selectedItemWidth = width + "px";
         $scope.selectedItem = {
             tmdbId: $stateParams.tmdbId,
             imdbId: $stateParams.imdbId,
@@ -9452,10 +9881,8 @@ function SearchController($scope, $http, $stateParams, $state, $uibModal, $timeo
 
     //Is called when the search page is opened with params, either because the user initiated the search (which triggered a goTo to this page) or because a search URL was entered
     $scope.startSearch = function () {
-        // console.time("searchonly");
-        // console.time("searchall");
         isSearchCancelled = false;
-        searchRequestId = Math.round(Math.random() * 999999);
+        searchRequestId = Math.round(Math.random() * 99999);
         var modalInstance = $scope.openModal(searchRequestId);
 
         var indexers = angular.isUndefined($scope.indexers) ? undefined : $scope.indexers.join(",");
@@ -9542,6 +9969,12 @@ function SearchController($scope, $http, $stateParams, $state, $uibModal, $timeo
     $scope.clearAutocomplete = function () {
         $scope.selectedItem = null;
         $scope.query = ""; //Input is now for autocomplete and not for limiting the results
+        focus('searchfield');
+    };
+
+    $scope.clearQuery = function () {
+        $scope.selectedItem = null;
+        $scope.query = "";
         focus('searchfield');
     };
 
@@ -10220,6 +10653,7 @@ formatDate.$inject = ["dateFilter"];angular
 
 function IndexerStatusesController($scope, $http, statuses) {
     $scope.statuses = statuses.data;
+    $scope.expiryWarnings = {};
 
     $scope.formatState = function (state) {
         if (state === "ENABLED") {
@@ -10248,6 +10682,19 @@ function IndexerStatusesController($scope, $http, statuses) {
     $scope.isInPast = function (epochSeconds) {
         return epochSeconds < moment().unix();
     };
+
+
+    _.each($scope.statuses, function (status) {
+        var expiryDate = moment(status.vipExpirationDate, "YYYY-MM-DD");
+        var messagePrefix = "VIP access";
+        if (expiryDate < moment()) {
+            status.expiryWarning = messagePrefix + " expired";
+        } else if (expiryDate.subtract(7, 'days') < moment()) {
+            status.expiryWarning = messagePrefix + " will expire in the next 7 days";
+        }
+        console.log(status.expiryWarning);
+
+    });
 }
 
 angular
@@ -10505,7 +10952,7 @@ function HeaderController($scope, $state, growl, HydraAuthService, bootstrapped)
 }
 
 /*
- *  (C) Copyright 2017 TheOtherP (theotherp@gmx.de)
+ *  (C) Copyright 2017 TheOtherP (theotherp@posteo.net)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -11042,7 +11489,7 @@ function reformatDateEpoch() {
 }
 
 /*
- *  (C) Copyright 2017 TheOtherP (theotherp@gmx.de)
+ *  (C) Copyright 2017 TheOtherP (theotherp@posteo.net)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.

@@ -1,5 +1,5 @@
 /*
- *  (C) Copyright 2017 TheOtherP (theotherp@gmx.de)
+ *  (C) Copyright 2017 TheOtherP (theotherp@posteo.net)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import com.google.common.base.Strings;
 import com.google.common.io.BaseEncoding;
 import com.googlecode.jsonrpc4j.JsonRpcHttpClient;
 import org.nzbhydra.GenericResponse;
+import org.nzbhydra.config.ConfigProvider;
 import org.nzbhydra.config.downloading.DownloaderConfig;
 import org.nzbhydra.downloading.FileDownloadStatus;
 import org.nzbhydra.downloading.downloaders.Converters;
@@ -28,8 +29,10 @@ import org.nzbhydra.downloading.downloaders.DownloaderEntry;
 import org.nzbhydra.downloading.downloaders.DownloaderStatus;
 import org.nzbhydra.downloading.exceptions.DownloaderException;
 import org.nzbhydra.logging.LoggingMarkers;
+import org.nzbhydra.webaccess.Ssl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -41,8 +44,10 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
+@SuppressWarnings({"unchecked", "RedundantCast"})
 @Component
 public class NzbGet extends Downloader {
 
@@ -75,6 +80,11 @@ public class NzbGet extends Downloader {
 
     }
 
+    @Autowired
+    private ConfigProvider configProvider;
+    @Autowired
+    private Ssl ssl;
+
     private static final Logger logger = LoggerFactory.getLogger(NzbGet.class);
     private JsonRpcHttpClient client;
     private Instant lastErrorLogged;
@@ -93,6 +103,12 @@ public class NzbGet extends Downloader {
                 headers.put("Authorization", "Basic " + BaseEncoding.base64().encode((downloaderConfig.getUsername().get() + ":" + downloaderConfig.getPassword().get()).getBytes()));
             }
             client = new JsonRpcHttpClient(builder.build().toUri().toURL(), headers);
+            final Ssl.SslVerificationState verificationState = ssl.getVerificationStateForHost(builder.build().getHost());
+            if (verificationState == Ssl.SslVerificationState.ENABLED) {
+                client.setSslContext(ssl.getCaCertsContext());
+            } else {
+                client.setSslContext(ssl.getAllTrustingSslContext());
+            }
         } catch (MalformedURLException e) {
             throw new RuntimeException("Unable to create URL from configuration: " + e.getMessage());
         }
@@ -188,17 +204,20 @@ public class NzbGet extends Downloader {
 
             status.setElementsInQueue(queue.size());
             if (queue.size() > 0) {
-                LinkedHashMap<String, Object> map = queue.get(0);
-                status.setDownloadingTitle((String) map.get("NZBName"));
-                int totalMb = (Integer) map.get("FileSizeMB") - (Integer) map.get("PausedSizeMB");
-                int remainingMb = (int) (Integer) map.get("RemainingSizeMB") - (Integer) map.get("PausedSizeMB"); //PausedSizeMB is size of pars
-                if (totalMb == 0) {
-                    status.setDownloadingTitlePercentFinished(0);
-                } else {
-                    status.setDownloadingTitlePercentFinished(Math.round(((totalMb - remainingMb) / (float) (totalMb)) * 100));
-                }
-                if (status.getState() == DownloaderStatus.State.DOWNLOADING && status.getDownloadRateInKilobytes() > 0) {
-                    status.setDownloadingTitleRemainingTimeFormatted(calculateTimeLeft(remainingMb, status.getDownloadRateInKilobytes() * 1024));
+                final Optional<LinkedHashMap<String, Object>> downloadingEntry = queue.stream().filter(x -> ((String) x.get("Status")).equals("DOWNLOADING")).findFirst();
+                if (downloadingEntry.isPresent()) {
+                    LinkedHashMap<String, Object> map = downloadingEntry.get();
+                    status.setDownloadingTitle((String) map.get("NZBName"));
+                    int totalMb = (Integer) map.get("FileSizeMB") - (Integer) map.get("PausedSizeMB");
+                    int remainingMb = (int) (Integer) map.get("RemainingSizeMB") - (Integer) map.get("PausedSizeMB"); //PausedSizeMB is size of pars
+                    if (totalMb == 0) {
+                        status.setDownloadingTitlePercentFinished(0);
+                    } else {
+                        status.setDownloadingTitlePercentFinished(Math.round(((totalMb - remainingMb) / (float) (totalMb)) * 100));
+                    }
+                    if (status.getState() == DownloaderStatus.State.DOWNLOADING && status.getDownloadRateInKilobytes() > 0) {
+                        status.setDownloadingTitleRemainingTimeFormatted(calculateTimeLeft(remainingMb, status.getDownloadRateInKilobytes() * 1024));
+                    }
                 }
             }
         }
@@ -215,7 +234,7 @@ public class NzbGet extends Downloader {
         status.setDownloaderName(downloaderConfig.getName());
         status.setDownloaderType(downloaderConfig.getDownloaderType());
 
-        @SuppressWarnings("RedundantCast") int remainingSizeMB = (Integer) statusMap.get("RemainingSizeMB") - (Integer) statusMap.getOrDefault("PausedSizeMB", 0);
+        int remainingSizeMB = (Integer) statusMap.get("RemainingSizeMB") - (Integer) statusMap.getOrDefault("PausedSizeMB", 0);
         status.setRemainingSizeFormatted(remainingSizeMB > 0 ? Converters.formatMegabytes(remainingSizeMB, true) : "");
         status.setRemainingSizeInMegaBytes(remainingSizeMB);
 

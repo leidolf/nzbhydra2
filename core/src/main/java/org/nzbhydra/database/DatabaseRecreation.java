@@ -1,5 +1,5 @@
 /*
- *  (C) Copyright 2020 TheOtherP (theotherp@gmx.de)
+ *  (C) Copyright 2020 TheOtherP (theotherp@posteo.net)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@ public class DatabaseRecreation {
 
     private static final Logger logger = LoggerFactory.getLogger(DatabaseRecreation.class);
 
-    private static Map<String, String> SCHEMA_VERSION_CHANGES = new LinkedHashMap<>();
+    private static final Map<String, String> SCHEMA_VERSION_CHANGES = new LinkedHashMap<>();
 
     static {
         SCHEMA_VERSION_CHANGES.put("'V1.11__REMOVE_INDEXERSTATUSES.sql', \\-?\\d+", "'V1.11__REMOVE_INDEXERSTATUSES.sql', 898390205");

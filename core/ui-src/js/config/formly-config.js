@@ -1,5 +1,5 @@
 /*
- *  (C) Copyright 2017 TheOtherP (theotherp@gmx.de)
+ *  (C) Copyright 2017 TheOtherP (theotherp@posteo.net)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -44,12 +44,10 @@ angular
 
         formlyConfigProvider.setWrapper({
             name: 'fieldset',
-            template: [
-                '<fieldset>',
-                '<legend><span class="config-fieldset-legend">{{options.templateOptions.label}}</span></legend>',
-                '<formly-transclude></formly-transclude>',
-                '</fieldset>'
-            ].join(' ')
+            templateUrl: 'fieldset-wrapper.html',
+            controller: ['$scope', function ($scope) {
+                $scope.tooltipIsOpen = false;
+            }]
         });
 
         formlyConfigProvider.setType({
@@ -157,6 +155,27 @@ angular
                     FileSelectionService.open($scope.model[$scope.options.key], $scope.to.type).then(function (selection) {
                         $scope.model[$scope.options.key] = selection;
                     });
+                }
+            }
+        });
+
+        formlyConfigProvider.setType({
+            name: 'colorInput',
+            extends: 'horizontalInput',
+            template: [
+                '<div class="input-group">',
+                '<input type="text" class="form-control" value="{{convertColor()}}" style="background-color: {{convertColor()}}"/>',
+                '<span class="input-group-btn input-group-btn2">',
+                '<button colorpicker="rgb" ng-model="model[options.key]" class="btn btn-default" type="button"><i class="fa fa-eyedropper" aria-hidden="true"></i></input>',
+                '</div>'
+            ].join(' '),
+            controller: function ($scope) {
+                $scope.convertColor = function () {
+                    if ($scope.model.color === undefined || $scope.model.color === null) {
+                        return "";
+                    }
+
+                    return $scope.model.color.replace("rgb", "rgba").replace(")", ",0.5)");
                 }
             }
         });

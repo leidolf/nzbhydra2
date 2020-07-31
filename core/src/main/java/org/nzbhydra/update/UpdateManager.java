@@ -17,13 +17,14 @@ import org.nzbhydra.NzbHydra;
 import org.nzbhydra.ShutdownEvent;
 import org.nzbhydra.WindowsTrayIcon;
 import org.nzbhydra.backup.BackupAndRestore;
+import org.nzbhydra.config.BaseConfig;
 import org.nzbhydra.config.ConfigProvider;
 import org.nzbhydra.genericstorage.GenericStorage;
 import org.nzbhydra.mapping.SemanticVersion;
 import org.nzbhydra.mapping.changelog.ChangelogVersionEntry;
 import org.nzbhydra.mapping.github.Asset;
 import org.nzbhydra.mapping.github.Release;
-import org.nzbhydra.okhttp.WebAccess;
+import org.nzbhydra.webaccess.WebAccess;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
@@ -36,6 +37,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
 
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -44,6 +46,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -71,8 +74,6 @@ public class UpdateManager implements InitializingBean {
     @Autowired
     private BackupAndRestore backupAndRestore;
     @Autowired
-    private GenericStorage updateDataGenericStorage;
-    @Autowired
     protected WebAccess webAccess;
     @Autowired
     private ConfigProvider configProvider;
@@ -86,7 +87,9 @@ public class UpdateManager implements InitializingBean {
     protected SemanticVersion currentVersion;
     protected SemanticVersion latestVersion;
 
-    private ObjectMapper objectMapper;
+    private PackageInfo packageInfo;
+
+    private final ObjectMapper objectMapper;
     protected Supplier<Release> latestReleaseCache = Suppliers.memoizeWithExpiration(getLatestReleaseSupplier(), 15, TimeUnit.MINUTES);
     protected TypeReference<List<ChangelogVersionEntry>> changelogEntryListTypeReference = new TypeReference<List<ChangelogVersionEntry>>() {
     };
@@ -95,6 +98,31 @@ public class UpdateManager implements InitializingBean {
         objectMapper = new ObjectMapper();
         objectMapper.setPropertyNamingStrategy(PropertyNamingStrategy.SNAKE_CASE);
         objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    }
+
+    private void loadPackageInfo() {
+        File packageFile = new File("/app/nzbhydra2/package_info");
+        if (packageFile.exists()) {
+            loadPackageInfoFile(packageFile);
+        }
+        packageFile = new File("package_info");
+        if (packageFile.exists()) {
+            loadPackageInfoFile(packageFile);
+        }
+        packageFile = new File("../package_info");
+        if (packageFile.exists()) {
+            loadPackageInfoFile(packageFile);
+        }
+    }
+
+    private void loadPackageInfoFile(File lsioPackageFile) {
+        Properties properties = new Properties();
+        try {
+            properties.load(new FileReader(lsioPackageFile));
+            packageInfo = new PackageInfo(properties.getProperty("ReleaseType"), properties.getProperty("PackageVersion"), properties.getProperty("PackageAuthor"));
+        } catch (IOException e) {
+            logger.error("Unable to read package info", e);
+        }
     }
 
     private SemanticVersion getLatestVersion() throws UpdateException {
@@ -121,7 +149,7 @@ public class UpdateManager implements InitializingBean {
 
     public boolean latestVersionIgnored() throws UpdateException {
         SemanticVersion latestVersion = getLatestVersion();
-        Optional<UpdateData> updateData = updateDataGenericStorage.get(KEY, UpdateData.class);
+        Optional<UpdateData> updateData = genericStorage.get(KEY, UpdateData.class);
         if (updateData.isPresent() && updateData.get().getIgnoreVersions().contains(latestVersion)) {
             logger.debug("Version {} is in the list of ignored updates", latestVersion);
             return true;
@@ -159,11 +187,11 @@ public class UpdateManager implements InitializingBean {
 
     public void ignore(String version) {
         SemanticVersion semanticVersion = new SemanticVersion(version);
-        UpdateData updateData = updateDataGenericStorage.get(KEY, UpdateData.class).orElse(new UpdateData());
+        UpdateData updateData = genericStorage.get(KEY, UpdateData.class).orElse(new UpdateData());
         if (!updateData.getIgnoreVersions().contains(semanticVersion)) {
             updateData.getIgnoreVersions().add(semanticVersion);
         }
-        updateDataGenericStorage.save(KEY, updateData);
+        genericStorage.save(KEY, updateData);
         logger.info("Version {} ignored. Will not show update notices for this version.", semanticVersion);
     }
 
@@ -192,7 +220,7 @@ public class UpdateManager implements InitializingBean {
         //Current release 2.0.0, install prerelases: Show changes 2.0.1 and newer
         //Current release 2.0.0, dont install prereleases: Show changes 2.0.1 and 3.0.0
 
-        final Optional<ChangelogVersionEntry> newestFinalUpdate = allChanges.stream().filter(x -> x.isFinal() && new SemanticVersion(x.getVersion()).isUpdateFor(currentVersion)).sorted(Comparator.reverseOrder()).findFirst();
+        final Optional<ChangelogVersionEntry> newestFinalUpdate = allChanges.stream().filter(x -> x.isFinal() && new SemanticVersion(x.getVersion()).isUpdateFor(currentVersion)).max(Comparator.naturalOrder());
 
         List<ChangelogVersionEntry> collectedVersionChanges = allChanges.stream().filter(x -> {
                     if (!new SemanticVersion(x.getVersion()).isUpdateFor(currentVersion)) {
@@ -262,7 +290,7 @@ public class UpdateManager implements InitializingBean {
     }
 
 
-    public void installUpdate() throws UpdateException {
+    public void installUpdate(boolean isAutomaticUpdate) throws UpdateException {
         Release latestRelease = latestReleaseCache.get();
         logger.info("Starting process to update to {}", latestRelease.getTagName());
         Asset asset = getAsset(latestRelease);
@@ -290,7 +318,8 @@ public class UpdateManager implements InitializingBean {
             throw new UpdateException("Error while downloading, saving or extracting update ZIP", e);
         }
 
-        if (configProvider.getBaseConfig().getMain().isBackupBeforeUpdate()) {
+        final BaseConfig baseConfig = configProvider.getBaseConfig();
+        if (baseConfig.getMain().isBackupBeforeUpdate()) {
             try {
                 logger.info("Creating backup before shutting down");
                 applicationEventPublisher.publishEvent(new UpdateEvent(UpdateEvent.State.CREATING_BACKUP, "Creating backup before update."));
@@ -302,6 +331,10 @@ public class UpdateManager implements InitializingBean {
 
         if (latestRelease.getTagName().equals("v2.7.6")) {
             applicationEventPublisher.publishEvent(new UpdateEvent(UpdateEvent.State.MIGRATION_NEEDED, "NZBHydra's restart after the update will take longer than usual because the database needs to be migrated."));
+        }
+
+        if (isAutomaticUpdate) {
+            genericStorage.save("automaticUpdateToNotice", getCurrentVersionString());
         }
 
         logger.info("Shutting down to let wrapper execute the update");
@@ -378,7 +411,9 @@ public class UpdateManager implements InitializingBean {
                 Thread.sleep(300);
                 applicationEventPublisher.publishEvent(new ShutdownEvent());
                 ((ConfigurableApplicationContext) NzbHydra.getApplicationContext()).close();
-                WindowsTrayIcon.remove();
+                if (NzbHydra.isOsWindows()) {
+                    WindowsTrayIcon.remove();
+                }
                 System.exit(returnCode);
             } catch (InterruptedException e) {
                 logger.error("Error while waiting to exit", e); //Doesn't ever happen anyway
@@ -394,6 +429,12 @@ public class UpdateManager implements InitializingBean {
             logger.warn("Version string not found. Using 1.0.0");
         }
         currentVersion = new SemanticVersion(currentVersionString);
+
+        loadPackageInfo();
+    }
+
+    public PackageInfo getPackageInfo() {
+        return packageInfo;
     }
 
     @Data
@@ -419,4 +460,15 @@ public class UpdateManager implements InitializingBean {
         private String version;
         private String comment;
     }
+
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class PackageInfo {
+        private String releaseType;
+        private String version;
+        private String author;
+    }
+
+
 }

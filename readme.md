@@ -28,14 +28,14 @@ Honest recommendation: If you don't understand what any or most of that means th
 
 If you don't have an up-to-date Java installation install [OpenJDK](https://adoptopenjdk.net/?variant=openjdk8&jvmVariant=openj9) (the JRE will suffice).
 
-Download the [latest release of NZBHydra 2](https://github.com/theotherp/nzbhydra2/releases/latest) for your platform ("linux" is any platform but windows). Extract it anywhere and start using the appropriate way:
+Download the [latest release of NZBHydra 2](https://github.com/theotherp/nzbhydra2/releases/latest) for your platform ("linux" is any platform but windows). Extract it anywhere (the zip does not include a base directory) and start using the appropriate way:
 * On Windows (64-bit) you can either start `NZBHydra2.exe` which will add a tray icon (give it some time) or `NZBHydra2 Console.exe` which will open a console window. Note: Do *not* use the folders `C:\Program Files` or `C:\Program Files (x86)`.
-* On Linux start `nzbhydra2` (currently working only on x64). You myd need to `chmod +x` it first. 
+* On Linux start `nzbhydra2` (currently working only on x64). You may need to `chmod +x` it first. 
 * On Mac: No executable yet, see next point
 * If you cannot run the executables for some reason, there's another way (the executables are just compiled Java):
   * Download [nzbhydra2wrapper.py](https://raw.githubusercontent.com/theotherp/nzbhydra2/master/other/wrapper/nzbhydra2wrapper.py) or [nzbhydra2wrapperPy3.py](https://raw.githubusercontent.com/theotherp/nzbhydra2/master/other/wrapper/nzbhydra2wrapperPy3.py), put it in the NZBHydra folder containing the executables and run it with Python 2.7 or Python 3.5+, respectively.
   * Or you can use...
-* Docker. You might want to use [binhex's container](https://hub.docker.com/r/binhex/arch-nzbhydra2/) or the one by popular maintainers [LinuxServer.io](https://github.com/linuxserver/docker-hydra2).
+* Docker. You might want to use [hotio's container](https://hub.docker.com/r/hotio/nzbhydra2/), [binhex's container](https://hub.docker.com/r/binhex/arch-nzbhydra2/) or the one by popular maintainers [LinuxServer.io](https://github.com/linuxserver/docker-nzbhydra2).
 
 After a while your browser should open to http://127.0.0.1:5076.
 
@@ -84,13 +84,16 @@ Please send merge requests to the develop branch!
 
 ## Contact
 
-Send me an email at TheOtherP@gmx.de or a PM at https://www.reddit.com/user/TheOtherP
+Send me an email at theotherp@posteo.net or a PM at https://www.reddit.com/user/TheOtherP
 
 ## Donate
 
-If you like to help me with any running or upcoming costs you're welcome to send Bitcoin via 1LPCUF9eKEXi58nHbxTbJyfxCJkcCXKzvm or Ether via 0xa6C33b4756D24027227C14285AfAeEE9a9738D42
-
-If you'd like to send other coins like Monero, Litecoin, etc. please contact me.  
+You're welcome to donate:
+  <ul>
+    <li>Bitcoin via 1LPCUF9eKEXi58nHbxTbJyfxCJkcCXKzvm</li>
+    <li>Regular money via PayPal to theotherp@posteo.net</li>
+    <li>Via <a href="https://github.com/sponsors/theotherp">GitHub sponsors</a> which involves a recurring donation similar to Patreon.</li>
+  </ul>
 
 ## Thanks
 

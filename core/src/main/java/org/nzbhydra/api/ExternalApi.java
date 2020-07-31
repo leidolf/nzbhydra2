@@ -92,7 +92,7 @@ public class ExternalApi {
 
     @RequestMapping(value = {"/api", "/rss", "/torznab/api"}, consumes = MediaType.ALL_VALUE)
     public ResponseEntity<? extends Object> api(NewznabParameters params) throws Exception {
-        int searchRequestId = random.nextInt(1000000);
+        int searchRequestId = random.nextInt(100000);
         if (params.getT() != null && params.getT().isSearch()) {
             MDC.put("SEARCH", String.valueOf(searchRequestId));
         }
@@ -179,7 +179,7 @@ public class ExternalApi {
         DownloadResult downloadResult;
         try {
 
-            downloadResult = fileHandler.getFileByGuid(Long.parseLong(params.getId()), configProvider.getBaseConfig().getSearching().getNzbAccessType(), SearchSource.API);
+            downloadResult = fileHandler.getFileByGuid(Long.parseLong(params.getId()), configProvider.getBaseConfig().getDownloading().getNzbAccessType(), SearchSource.API);
         } catch (InvalidSearchResultIdException e) {
             return ResponseEntity.ok().contentType(MediaType.APPLICATION_XML).body("<error code=\"300\" description=\"Invalid or outdated search result ID\"/>");
         }

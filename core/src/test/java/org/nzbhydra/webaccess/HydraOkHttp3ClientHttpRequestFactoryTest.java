@@ -1,4 +1,4 @@
-package org.nzbhydra.okhttp;
+package org.nzbhydra.webaccess;
 
 import okhttp3.OkHttpClient;
 import org.junit.Before;
@@ -10,7 +10,7 @@ import org.nzbhydra.config.BaseConfig;
 import org.nzbhydra.config.ConfigChangedEvent;
 import org.nzbhydra.config.ConfigProvider;
 import org.nzbhydra.config.downloading.ProxyType;
-import org.nzbhydra.okhttp.HydraOkHttp3ClientHttpRequestFactory.SockProxySocketFactory;
+import org.nzbhydra.webaccess.HydraOkHttp3ClientHttpRequestFactory.SockProxySocketFactory;
 
 import java.net.InetSocketAddress;
 import java.net.URI;
@@ -21,7 +21,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.core.Is.is;
 import static org.junit.Assert.assertThat;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 public class HydraOkHttp3ClientHttpRequestFactoryTest {
 
@@ -30,6 +30,7 @@ public class HydraOkHttp3ClientHttpRequestFactoryTest {
 
     @Mock
     private ConfigProvider configProviderMock;
+
 
     BaseConfig baseConfig = new BaseConfig();
 
@@ -40,6 +41,9 @@ public class HydraOkHttp3ClientHttpRequestFactoryTest {
         baseConfig.getMain().setProxyIgnoreLocal(true);
         baseConfig.getMain().setProxyIgnoreDomains(Arrays.asList("mydomain.com", "github.com", "*.otherdomain.net"));
         testee.handleConfigChangedEvent(new ConfigChangedEvent(this, baseConfig, baseConfig));
+
+        testee = spy(testee);
+        doNothing().when(testee).configureBuilderForSsl(any(), any());
     }
 
     @Test
@@ -65,9 +69,9 @@ public class HydraOkHttp3ClientHttpRequestFactoryTest {
 
     @Test
     public void shouldRecognizeSameHost() {
-        assertThat(testee.isSameHost("localhost", "localhost"), is(true));
-        assertThat(testee.isSameHost("www.google.com", "google.com"), is(true));
-        assertThat(testee.isSameHost("www.google.com", "localhost"), is(false));
+        assertThat(Ssl.isSameHost("localhost", "localhost"), is(true));
+        assertThat(Ssl.isSameHost("www.google.com", "google.com"), is(true));
+        assertThat(Ssl.isSameHost("www.google.com", "localhost"), is(false));
     }
 
     @Test

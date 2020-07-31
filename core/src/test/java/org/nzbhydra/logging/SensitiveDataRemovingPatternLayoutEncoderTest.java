@@ -1,5 +1,5 @@
 /*
- *  (C) Copyright 2017 TheOtherP (theotherp@gmx.de)
+ *  (C) Copyright 2017 TheOtherP (theotherp@posteo.net)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -30,6 +30,9 @@ public class SensitiveDataRemovingPatternLayoutEncoderTest {
 
         result = encoder.removeSensitiveData("https://www.indexer.com/api?apikey=12345678");
         assertThat(result).isEqualTo("https://www.indexer.com/api?apikey=<apikey>");
+
+        result = encoder.removeSensitiveData("http://host:5076/nzbhydra2/getnzb/api/123?apikey%3D123&nzbname=filename.nzb");
+        assertThat(result).isEqualTo("http://host:5076/nzbhydra2/getnzb/api/123?apikey%3D<apikey>&nzbname=filename.nzb");
 
         result = encoder.removeSensitiveData("https://www.indexer.com/api?t=search&apikey=12345678");
         assertThat(result).isEqualTo("https://www.indexer.com/api?t=search&apikey=<apikey>");

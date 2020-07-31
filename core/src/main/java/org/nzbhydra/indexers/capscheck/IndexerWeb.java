@@ -1,5 +1,5 @@
 /*
- *  (C) Copyright 2017 TheOtherP (theotherp@gmx.de)
+ *  (C) Copyright 2017 TheOtherP (theotherp@posteo.net)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -24,6 +24,8 @@ import org.nzbhydra.GenericResponse;
 import org.nzbhydra.config.indexer.IndexerConfig;
 import org.nzbhydra.config.indexer.SearchModuleType;
 import org.nzbhydra.indexers.capscheck.IndexerChecker.CheckerEvent;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.event.EventListener;
 import org.springframework.http.MediaType;
@@ -39,9 +41,15 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @RestController
 public class IndexerWeb {
+
+    private static final Logger logger = LoggerFactory.getLogger(IndexerWeb.class);
+
+    private static final Pattern JACKETT_INDEXER_PATTERM = Pattern.compile(".*/indexers/(.*)/results/torznab.*");
 
     @Autowired
     private IndexerChecker newznabChecker;
@@ -91,9 +99,9 @@ public class IndexerWeb {
         int countUpdatedTrackers = 0;
         int countAddedTrackers = 0;
 
-        //Update existing configs, add new onex
+        //Update existing configs, add new ones
         for (IndexerConfig foundJackettConfig : foundJackettConfigs) {
-            final Optional<IndexerConfig> updatedIndexer = configReadRequest.existingIndexers.stream().filter(x -> x.getHost().equals(foundJackettConfig.getHost())).findFirst();
+            final Optional<IndexerConfig> updatedIndexer = configReadRequest.existingIndexers.stream().filter(x -> isMatch(foundJackettConfig, x)).findFirst();
             if (updatedIndexer.isPresent()) {
                 updatedIndexer.get().setHost(foundJackettConfig.getHost());
                 updatedIndexer.get().setApiKey(foundJackettConfig.getApiKey());
@@ -106,11 +114,25 @@ public class IndexerWeb {
             }
         }
 
+        logger.info("Found {} new and {} updated trackers", countAddedTrackers, countUpdatedTrackers);
+
         response.setNewIndexersConfig(newConfigs);
         response.setUpdatedTrackers(countUpdatedTrackers);
         response.setAddedTrackers(countAddedTrackers);
 
         return response;
+    }
+
+    private boolean isMatch(IndexerConfig a, IndexerConfig b) {
+        final Matcher aMatcher = JACKETT_INDEXER_PATTERM.matcher(a.getHost().toLowerCase());
+        if (!aMatcher.matches()) {
+            return false;
+        }
+        final Matcher bMatcher = JACKETT_INDEXER_PATTERM.matcher(b.getHost().toLowerCase());
+        if (!bMatcher.matches()) {
+            return false;
+        }
+        return aMatcher.group(1).equals(bMatcher.group(1));
     }
 
     @EventListener

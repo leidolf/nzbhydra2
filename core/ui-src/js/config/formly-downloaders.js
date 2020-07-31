@@ -1,5 +1,5 @@
 /*
- *  (C) Copyright 2017 TheOtherP (theotherp@gmx.de)
+ *  (C) Copyright 2017 TheOtherP (theotherp@posteo.net)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -229,7 +229,8 @@ angular
                                     {name: 'Send link', value: 'SEND_LINK'},
                                     {name: 'Upload NZB', value: 'UPLOAD'}
                                 ],
-                                help: "How NZBs are added to the downloader, either by sending a link to the NZB or by uploading the NZB data. Uploading is recommended"
+                                help: "How NZBs are added to the downloader, either by sending a link to the NZB or by uploading the NZB data.",
+                                tooltip: 'You can select if you want to upload the NZB to the downloader or send a Hydra link. The downloader will do the download itself. This is a matter of taste, but adding a link and redirecting the downloader is the fastest way.'
                             }
                         },
                         {
@@ -239,7 +240,8 @@ angular
                                 type: 'text',
                                 label: 'Icon CSS class',
                                 help: 'Copy an icon name from https://fontawesome.com/v4.7.0/icons/ (e.g. "film")',
-                                placeholder: 'Default'
+                                placeholder: 'Default',
+                                tooltip: 'If you have multiple downloaders of the same type you can select an icon from the Font Awesome library. This icon will be shown in the search results and the NZB download history instead of the default downloader icon.'
                             }
                         }
                     ]);

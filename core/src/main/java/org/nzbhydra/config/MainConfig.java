@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonFormat.Shape;
 import com.google.common.base.Strings;
 import lombok.Data;
+import org.javers.core.metamodel.annotation.DiffIgnore;
 import org.nzbhydra.config.downloading.ProxyType;
 import org.nzbhydra.config.sensitive.SensitiveData;
 import org.nzbhydra.debuginfos.DebugInfosProvider;
@@ -26,25 +27,19 @@ public class MainConfig extends ValidatingConfig<MainConfig> {
 
     private static final Logger logger = LoggerFactory.getLogger(MainConfig.class);
 
-    @SensitiveData
-    private String apiKey = null;
-    private Integer configVersion = 12;
-    private String backupFolder;
-    private Integer backupEveryXDays = 7;
-    private boolean backupBeforeUpdate = true;
-    private Integer deleteBackupsAfterWeeks = 4;
-    private String dereferer = null;
-    @RestartRequired
-    private int databaseCompactTime = 15_000;
-    private boolean instanceCounterDownloaded = false;
-    private boolean keepHistory = true;
-    private Integer keepStatsForWeeks = null;
-    private Integer keepHistoryForWeeks = null;
+    private Integer configVersion = 14;
+
+    //Hosting settings
     @RestartRequired
     private String host = "0.0.0.0";
-    private LoggingConfig logging = new LoggingConfig();
     @RestartRequired
     private int port = 5076;
+    @RestartRequired
+    protected String urlBase = null;
+
+
+    //Proxy settings
+    @RestartRequired
     @JsonFormat(shape = Shape.STRING)
     private ProxyType proxyType = ProxyType.NONE;
     @SensitiveData
@@ -56,11 +51,22 @@ public class MainConfig extends ValidatingConfig<MainConfig> {
     private String proxyUsername;
     @SensitiveData
     private String proxyPassword;
-    private String repositoryBase;
-    private boolean showNews = true;
-    private boolean showUpdateBannerOnDocker = true;
-    private boolean shutdownForRestart = false;
-    private List<String> sniDisabledFor = new ArrayList<>();
+
+
+    //Database settings
+    private String backupFolder;
+    private Integer backupEveryXDays = 7;
+    private boolean backupBeforeUpdate = true;
+    private Integer deleteBackupsAfterWeeks = 4;
+
+
+    //History settings
+    private boolean keepHistory = true;
+    private Integer keepStatsForWeeks = null;
+    private Integer keepHistoryForWeeks = null;
+
+
+    //SSL settings
     @RestartRequired
     private boolean ssl = false;
     @RestartRequired
@@ -68,21 +74,53 @@ public class MainConfig extends ValidatingConfig<MainConfig> {
     @SensitiveData
     @RestartRequired
     private String sslKeyStorePassword = null;
-    private boolean startupBrowser = true;
-    protected String theme;
+
+
+    //Security settings
     @RestartRequired
-    protected String urlBase = null;
-    private boolean updateCheckEnabled = true;
+    private boolean verifySsl = true;
+    private boolean disableSslLocally = false;
+    private List<String> sniDisabledFor = new ArrayList<>();
+    private List<String> verifySslDisabledFor = new ArrayList<>();
+
+
+    //Update settings
     private boolean updateAutomatically = false;
     private boolean updateToPrereleases = false;
+    private boolean updateCheckEnabled = true;
+    private boolean showUpdateBannerOnDocker = true;
+
+
+    //Startup / GUI settings
+    private boolean showNews = true;
+    private boolean startupBrowser = true;
+    private boolean welcomeShown = false;
+    protected String theme;
+
+
+    //Database settings
+    @RestartRequired
+    private int databaseCompactTime = 15_000;
+    @RestartRequired
+    private int databaseRetentionTime = 1000;
+    @RestartRequired
+    private int databaseWriteDelay = 5000;
+
+
+    //Other settings
+    @SensitiveData
+    @DiffIgnore
+    private String apiKey = null;
+    private String dereferer = null;
+    private boolean instanceCounterDownloaded = false;
+    private String repositoryBase;
+    private boolean shutdownForRestart = false;
     @RestartRequired
     private boolean useCsrf = true;
     @RestartRequired
-    private boolean verifySsl = true;
-    private List<String> verifySslDisabledFor = new ArrayList<>();
-    private boolean welcomeShown = false;
-    @RestartRequired
     private int xmx;
+
+    private LoggingConfig logging = new LoggingConfig();
 
     public Optional<String> getUrlBase() {
         return Optional.ofNullable(Strings.emptyToNull(urlBase));
@@ -142,19 +180,19 @@ public class MainConfig extends ValidatingConfig<MainConfig> {
         }
 
 
-        ConfigValidationResult loggingResult = getLogging().validateConfig(oldConfig, getLogging(), newBaseConfig);
-        result.getWarningMessages().addAll(loggingResult.getWarningMessages());
-        result.getErrorMessages().addAll(loggingResult.getErrorMessages());
+        ConfigValidationResult validationResult = getLogging().validateConfig(oldConfig, getLogging(), newBaseConfig);
+        result.getWarningMessages().addAll(validationResult.getWarningMessages());
+        result.getErrorMessages().addAll(validationResult.getErrorMessages());
 
-        oldMain = oldMain.prepareForSaving();
-        result.setRestartNeeded(loggingResult.isRestartNeeded() || isRestartNeeded(oldMain));
-        result.setOk(loggingResult.isOk() && result.isOk());
+        oldMain = oldMain.prepareForSaving(oldConfig);
+        result.setRestartNeeded(validationResult.isRestartNeeded() || isRestartNeeded(oldMain));
+        result.setOk(validationResult.isOk() && result.isOk());
 
         return result;
     }
 
     @Override
-    public MainConfig prepareForSaving() {
+    public MainConfig prepareForSaving(BaseConfig oldBaseConfig) {
         if (!Strings.isNullOrEmpty(urlBase) && (!urlBase.startsWith("/") || urlBase.endsWith("/") || "/".equals(urlBase))) {
             if (!urlBase.startsWith("/")) {
                 urlBase = "/" + urlBase;

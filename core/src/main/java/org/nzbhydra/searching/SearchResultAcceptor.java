@@ -13,6 +13,7 @@ import org.nzbhydra.config.BaseConfig;
 import org.nzbhydra.config.ConfigProvider;
 import org.nzbhydra.config.SearchSourceRestriction;
 import org.nzbhydra.config.indexer.IndexerConfig;
+import org.nzbhydra.config.indexer.SearchModuleType;
 import org.nzbhydra.logging.LoggingMarkers;
 import org.nzbhydra.searching.dtoseventsenums.SearchResultItem;
 import org.nzbhydra.searching.searchrequests.SearchRequest;
@@ -26,7 +27,14 @@ import javax.validation.ConstraintViolation;
 import javax.validation.Validation;
 import javax.validation.Validator;
 import javax.validation.ValidatorFactory;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
@@ -42,8 +50,8 @@ public class SearchResultAcceptor {
 
     private Map<String, List<String>> titleWordCache = new ConcurrentHashMap<>();
 
-    private ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
-    private Validator validator = factory.getValidator();
+    private final ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
+    private final Validator validator = factory.getValidator();
 
 
     @Autowired
@@ -86,6 +94,12 @@ public class SearchResultAcceptor {
             if (!checkForCategoryDisabledForIndexer(searchRequest, reasonsForRejection, item)) {
                 continue;
             }
+            if (!checkForLanguage(reasonsForRejection, item)) {
+                continue;
+            }
+            if (!checkMinSeeders(indexerConfig, reasonsForRejection, item)) {
+                continue;
+            }
 
             //Forbidden words from query
             if (!checkForForbiddenWords(indexerConfig, reasonsForRejection, searchRequest.getInternalData().getForbiddenWords(), item)) {
@@ -95,6 +109,7 @@ public class SearchResultAcceptor {
             if (!checkRequiredWords(reasonsForRejection, searchRequest.getInternalData().getRequiredWords(), item)) {
                 continue;
             }
+
 
             //Globally configured
             boolean applyWordAndRegexRestrictions = baseConfig.getSearching().getApplyRestrictions() == SearchSourceRestriction.BOTH || Objects.equals(searchRequest.getSource().name(), baseConfig.getSearching().getApplyRestrictions().name());
@@ -195,7 +210,7 @@ public class SearchResultAcceptor {
                                 ? item.getCategory().getMinSizePreset().orElse(null)
                                 : null
                 );
-        if (minSize != null && item.getSize() / (1024 * 1024) < minSize) {
+        if (minSize != null && item.getSize() != null && item.getSize() / (1024 * 1024) < minSize) {
             logger.debug(LoggingMarkers.RESULT_ACCEPTOR, "{} is smaller than {}", item.getTitle(), minSize);
             reasonsForRejection.add("Wrong size");
             return false;
@@ -207,7 +222,7 @@ public class SearchResultAcceptor {
                                 ? item.getCategory().getMaxSizePreset().orElse(null)
                                 : null
                 );
-        if (maxSize != null && item.getSize() / (1024 * 1024) > maxSize) {
+        if (maxSize != null && item.getSize() != null && item.getSize() / (1024 * 1024) > maxSize) {
             logger.debug(LoggingMarkers.RESULT_ACCEPTOR, "{} is bigger than {}", item.getTitle(), maxSize);
             reasonsForRejection.add("Wrong size");
             return false;
@@ -334,7 +349,50 @@ public class SearchResultAcceptor {
 
     protected boolean checkForPassword(Multiset<String> reasonsForRejection, SearchResultItem item) {
         if (configProvider.getBaseConfig().getSearching().isIgnorePassworded() && item.isPassworded()) {
+            logger.debug(LoggingMarkers.RESULT_ACCEPTOR, "Ignore passworded result");
             reasonsForRejection.add("Ignore passworded");
+            return false;
+        }
+        return true;
+    }
+
+    protected boolean checkForLanguage(Multiset<String> reasonsForRejection, SearchResultItem item) {
+        final List<String> languagesToKeep = configProvider.getBaseConfig().getSearching().getLanguagesToKeep();
+        if (languagesToKeep.isEmpty()) {
+            return true;
+        }
+        if (!item.getAttributes().containsKey("language")) {
+            return true;
+        }
+        final String language = item.getAttributes().get("language");
+        if (!languagesToKeep.contains(language)) {
+            logger.debug(LoggingMarkers.RESULT_ACCEPTOR, "Found language {} which is to be filtered", language);
+            reasonsForRejection.add("Wrong language");
+            return false;
+        }
+        return true;
+    }
+
+    protected boolean checkMinSeeders(IndexerConfig indexerConfig, Multiset<String> reasonsForRejection, SearchResultItem item) {
+        if (indexerConfig.getSearchModuleType() != SearchModuleType.TORZNAB) {
+            return true;
+        }
+        final Integer resultSeeders = item.getSeeders();
+        if (resultSeeders == null) {
+            return true;
+        }
+
+        final Integer indexerMinSeeders = indexerConfig.getMinSeeders();
+        if (indexerMinSeeders != null && resultSeeders < indexerMinSeeders) {
+            logger.debug(LoggingMarkers.RESULT_ACCEPTOR, "At least {} seeders expected for results from indexer {} but has {}", indexerConfig.getName(), indexerMinSeeders, resultSeeders);
+            reasonsForRejection.add("Not enough seeders");
+            return false;
+        }
+
+        final Integer mainMinSeeders = configProvider.getBaseConfig().getSearching().getMinSeeders();
+        if (mainMinSeeders != null && resultSeeders < mainMinSeeders) {
+            logger.debug(LoggingMarkers.RESULT_ACCEPTOR, "At least {} seeders expected but has {}", mainMinSeeders, resultSeeders);
+            reasonsForRejection.add("Not enough seeders");
             return false;
         }
         return true;

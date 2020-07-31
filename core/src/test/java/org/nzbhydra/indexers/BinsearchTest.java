@@ -5,7 +5,12 @@ import com.google.common.io.Resources;
 import net.jodah.failsafe.FailsafeException;
 import org.junit.Before;
 import org.junit.Test;
-import org.mockito.*;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.mockito.stubbing.Answer;
 import org.nzbhydra.config.BaseConfig;
 import org.nzbhydra.config.ConfigProvider;
 import org.nzbhydra.config.indexer.IndexerConfig;
@@ -41,23 +46,33 @@ public class BinsearchTest {
     BaseConfig baseConfig = new BaseConfig();
     @Captor
     private ArgumentCaptor<URI> uriCaptor;
+    @Mock
+    private QueryGenerator queryGeneratorMock;
 
     @InjectMocks
     private Binsearch testee = new Binsearch();
 
     @Before
-    public void setUp() {
+    public void setUp() throws Exception {
         MockitoAnnotations.initMocks(this);
         when(configProviderMock.getBaseConfig()).thenReturn(baseConfig);
         testee.config = new IndexerConfig();
         testee.config.setName("binsearch");
         testee.config.setHost("https://www.binsearch.info");
+
+        when(queryGeneratorMock.generateQueryIfApplicable(any(), any(), any())).thenAnswer((Answer<String>) invocation -> {
+            final SearchRequest searchRequest = invocation.getArgument(0);
+            if (searchRequest.getQuery().isPresent()) {
+                return searchRequest.getQuery().get();
+            }
+            return invocation.getArgument(1);
+        });
     }
 
     @Test
     public void shouldParseResultsCorrectly() throws Exception {
         String html = Resources.toString(Resources.getResource(BinsearchTest.class, "/org/nzbhydra/mapping/binsearch.html"), Charsets.UTF_8);
-        List<SearchResultItem> searchResultItems = testee.getSearchResultItems(html);
+        List<SearchResultItem> searchResultItems = testee.getSearchResultItems(html, new SearchRequest());
         assertThat(searchResultItems.size(), is(1));
         SearchResultItem item = searchResultItems.get(0);
         assertThat(item.getTitle(), is("testtitle. 3D.TOPBOT.TrueFrench.1080p.X264.AC3.5.1-JKF.mkv"));
@@ -74,7 +89,7 @@ public class BinsearchTest {
     @Test
     public void shouldParseOtherResultsCorrectly() throws Exception {
         String html = Resources.toString(Resources.getResource(BinsearchTest.class, "/org/nzbhydra/mapping/binsearch_randm.html"), Charsets.UTF_8);
-        List<SearchResultItem> searchResultItems = testee.getSearchResultItems(html);
+        List<SearchResultItem> searchResultItems = testee.getSearchResultItems(html, new SearchRequest());
         assertThat(searchResultItems.size(), is(41));
     }
 
@@ -112,7 +127,7 @@ public class BinsearchTest {
     @Test
     public void shouldRecognizeWhenNoResultsFound() throws Exception {
         String html = Resources.toString(Resources.getResource(BinsearchTest.class, "/org/nzbhydra/mapping/binsearch_noresults.html"), Charsets.UTF_8);
-        List<SearchResultItem> searchResultItems = testee.getSearchResultItems(html);
+        List<SearchResultItem> searchResultItems = testee.getSearchResultItems(html, new SearchRequest());
         assertThat(searchResultItems, is(empty()));
     }
 

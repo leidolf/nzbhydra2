@@ -1,5 +1,5 @@
 /*
- *  (C) Copyright 2017 TheOtherP (theotherp@gmx.de)
+ *  (C) Copyright 2017 TheOtherP (theotherp@posteo.net)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -69,7 +69,7 @@ public class TorrentFileHandler {
             return fileHandler.handleRedirect(accessSource, result);
         } else {
             try {
-                return fileHandler.handleContentDownload(accessSource, result, "torrent");
+                return fileHandler.handleContentDownload(accessSource, result);
             } catch (MagnetLinkRedirectException e) {
                 return fileHandler.handleRedirect(accessSource, result);
             }
@@ -84,6 +84,12 @@ public class TorrentFileHandler {
             boolean successful = false;
             try {
                 result = getTorrentByGuid(guid, FileDownloadAccessType.PROXY, SearchRequest.SearchSource.INTERNAL);
+            } catch (InvalidSearchResultIdException e) {
+                logger.error("Unable to find result with ID {}", guid);
+                failedIds.add(guid);
+                continue;
+            }
+            try {
                 if (result.isSuccessful()) {
                     if (result.getContent() != null) {
                         successful = saveToBlackHole(result, null);
@@ -91,8 +97,9 @@ public class TorrentFileHandler {
                         successful = handleMagnetLink(result);
                     }
                 }
-            } catch (InvalidSearchResultIdException e) {
-                logger.error("Unable to find result with ID {}", guid);
+            } catch (Exception e) {
+                logger.error("Error while handling " + result, e);
+                failedIds.add(guid);
             }
             if (successful) {
                 successfulIds.add(guid);
@@ -142,11 +149,11 @@ public class TorrentFileHandler {
         }
         byte[] content;
         File torrent;
-        if(magnetLinkUri != null){
+        if (magnetLinkUri != null) {
             torrent = new File(configProvider.getBaseConfig().getDownloading().getSaveTorrentsTo().get(), sanitizedTitle + ".magnet");
             String UriContent = magnetLinkUri.toString();
             content = UriContent.getBytes();
-        }else{
+        } else {
             torrent = new File(configProvider.getBaseConfig().getDownloading().getSaveTorrentsTo().get(), sanitizedTitle + ".torrent");
             content = result.getContent();
         }

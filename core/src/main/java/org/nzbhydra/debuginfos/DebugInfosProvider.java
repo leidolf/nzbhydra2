@@ -4,18 +4,26 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import org.apache.commons.io.IOUtils;
+import org.javers.core.JaversBuilder;
+import org.javers.core.diff.Diff;
 import org.nzbhydra.Jackson;
 import org.nzbhydra.NzbHydra;
+import org.nzbhydra.config.BaseConfig;
 import org.nzbhydra.config.ConfigProvider;
+import org.nzbhydra.config.ConfigReaderWriter;
+import org.nzbhydra.config.category.CategoriesConfig;
+import org.nzbhydra.config.category.Category;
 import org.nzbhydra.logging.LogAnonymizer;
 import org.nzbhydra.logging.LogContentProvider;
 import org.nzbhydra.logging.LoggingMarkers;
-import org.nzbhydra.okhttp.HydraOkHttp3ClientHttpRequestFactory;
 import org.nzbhydra.problemdetection.OutdatedWrapperDetector;
 import org.nzbhydra.update.UpdateManager;
+import org.nzbhydra.webaccess.HydraOkHttp3ClientHttpRequestFactory;
+import org.nzbhydra.webaccess.Ssl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.actuate.management.ThreadDumpEndpoint;
 import org.springframework.boot.actuate.metrics.MetricsEndpoint;
 import org.springframework.stereotype.Component;
@@ -72,9 +80,16 @@ public class DebugInfosProvider {
     private ThreadDumpEndpoint threadDumpEndpoint;
     @PersistenceContext
     private EntityManager entityManager;
+    @Autowired
+    private OutdatedWrapperDetector wrapperDetector;
+    @Autowired
+    private Ssl ssl;
 
-    private List<TimeAndThreadCpuUsages> timeAndThreadCpuUsagesList = new ArrayList<>();
-    private Map<String, Long> lastThreadCpuTimes = new HashMap<>();
+    @Value("spring.datasource.url")
+    private String datasourceUrl;
+
+    private final List<TimeAndThreadCpuUsages> timeAndThreadCpuUsagesList = new ArrayList<>();
+    private final Map<String, Long> lastThreadCpuTimes = new HashMap<>();
 
     @PostConstruct
     public void logMetrics() {
@@ -83,27 +98,24 @@ public class DebugInfosProvider {
         }
         logger.debug(LoggingMarkers.PERFORMANCE, "Will log performance metrics every {} seconds", LOG_METRICS_EVERY_SECONDS);
         ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
-        executor.scheduleAtFixedRate(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    final String cpuMetric = "process.cpu.usage";
-                    String message = "Process CPU usage: " + formatSample(cpuMetric, metricsEndpoint.metric(cpuMetric, null).getMeasurements().get(0).getValue());
-                    logger.debug(LoggingMarkers.PERFORMANCE, message);
-                } catch (Exception e) {
-                    logger.debug(LoggingMarkers.PERFORMANCE, "Error while logging CPU usage", e);
-                }
-                try {
-                    final String memoryMetric = "jvm.memory.used";
-                    String message = "Process memory usage: " + formatSample(memoryMetric, metricsEndpoint.metric(memoryMetric, null).getMeasurements().get(0).getValue());
-                    logger.debug(LoggingMarkers.PERFORMANCE, message);
-                } catch (Exception e) {
-                    logger.debug(LoggingMarkers.PERFORMANCE, "Error while logging memory usage", e);
-                }
-                ThreadMXBean threadMxBean = ManagementFactory.getThreadMXBean();
-                final ThreadInfo[] threadInfos = threadMxBean.dumpAllThreads(true, true);
-
+        executor.scheduleAtFixedRate(() -> {
+            try {
+                final String cpuMetric = "process.cpu.usage";
+                String message = "Process CPU usage: " + formatSample(cpuMetric, metricsEndpoint.metric(cpuMetric, null).getMeasurements().get(0).getValue());
+                logger.debug(LoggingMarkers.PERFORMANCE, message);
+            } catch (Exception e) {
+                logger.debug(LoggingMarkers.PERFORMANCE, "Error while logging CPU usage", e);
             }
+            try {
+                final String memoryMetric = "jvm.memory.used";
+                String message = "Process memory usage: " + formatSample(memoryMetric, metricsEndpoint.metric(memoryMetric, null).getMeasurements().get(0).getValue());
+                logger.debug(LoggingMarkers.PERFORMANCE, message);
+            } catch (Exception e) {
+                logger.debug(LoggingMarkers.PERFORMANCE, "Error while logging memory usage", e);
+            }
+            ThreadMXBean threadMxBean = ManagementFactory.getThreadMXBean();
+            final ThreadInfo[] threadInfos = threadMxBean.dumpAllThreads(true, true);
+
         }, 0, LOG_METRICS_EVERY_SECONDS, TimeUnit.SECONDS);
 
         int cpuCount = metricsEndpoint.metric("system.cpu.count", null).getMeasurements().get(0).getValue().intValue();
@@ -172,11 +184,10 @@ public class DebugInfosProvider {
         logger.info("OS architecture: {}", System.getProperty("os.arch"));
         logger.info("User country: {}", System.getProperty("user.country"));
         logger.info("File encoding: {}", System.getProperty("file.encoding"));
+        logger.info("Datasource URL: {}", datasourceUrl);
         logger.info("Ciphers:");
-        logger.info(requestFactory.getSupportedCiphers());
-        if (outdatedWrapperDetector.isOutdatedWrapperDetected()) {
-            logger.warn("Outdated wrapper detected");
-        }
+        logger.info(ssl.getSupportedCiphers());
+        outdatedWrapperDetector.executeCheck();
         logNumberOfTableRows("SEARCH");
         logNumberOfTableRows("SEARCHRESULT");
         logNumberOfTableRows("INDEXERSEARCH");
@@ -186,7 +197,13 @@ public class DebugInfosProvider {
         logDatabaseFolderSize();
         if (isRunInDocker()) {
             logger.info("Apparently run in docker");
+            logger.info("Container info: {}", updateManager.getPackageInfo());
+        } else {
+            logger.info("Apparently not run in docker");
         }
+
+        String anonymizedConfig = getAnonymizedConfig();
+        logConfigChanges(anonymizedConfig);
 
         logger.info("Metrics:");
         final Set<String> metricsNames = metricsEndpoint.listNames().getNames();
@@ -197,7 +214,7 @@ public class DebugInfosProvider {
                     .collect(Collectors.joining(", ")));
         }
 
-        String anonymizedConfig = getAnonymizedConfig();
+
         String anonymizedLog = logAnonymizer.getAnonymizedLog(logContentProvider.getLog());
         File tempFile = File.createTempFile("nzbhydradebuginfos", "zip");
         try (FileOutputStream fos = new FileOutputStream(tempFile)) {
@@ -225,6 +242,21 @@ public class DebugInfosProvider {
         }
         logger.debug("Finished creating debug infos ZIP");
         return Files.readAllBytes(tempFile.toPath());
+    }
+
+    private void logConfigChanges(String anonymizedConfig) throws IOException {
+        final ConfigReaderWriter configReaderWriter = new ConfigReaderWriter();
+
+        final BaseConfig originalConfig = configReaderWriter.originalConfig();
+        originalConfig.setCategoriesConfig(new DiffableCategoriesConfig(originalConfig.getCategoriesConfig()));
+
+        final BaseConfig userConfig = Jackson.YAML_MAPPER.readValue(anonymizedConfig, BaseConfig.class);
+        userConfig.setCategoriesConfig(new DiffableCategoriesConfig(userConfig.getCategoriesConfig()));
+
+        final Diff configDiff = JaversBuilder.javers()
+                .build()
+                .compare(originalConfig, userConfig);
+        logger.info("Difference in config:\n{}", configDiff.prettyPrint());
     }
 
     public void logThreadDump() {
@@ -299,7 +331,7 @@ public class DebugInfosProvider {
     }
 
     @Transactional
-    public String executeSqlUpdate(String sql) throws IOException {
+    public String executeSqlUpdate(String sql) {
         logger.info("Executing SQL query \"{}\"", sql);
 
         int affectedRows = entityManager.createNativeQuery(sql).executeUpdate();
@@ -339,6 +371,19 @@ public class DebugInfosProvider {
     public static class ThreadCpuUsage {
         private final String threadName;
         private final long cpuUsage;
+    }
+
+    @Data
+    public static class DiffableCategoriesConfig extends CategoriesConfig {
+        private Map<String, Category> categoriesMap = new HashMap<>();
+
+        public DiffableCategoriesConfig(CategoriesConfig categoriesConfig) {
+            categoriesConfig.getCategories().forEach(x -> {
+                categoriesMap.put(x.getName(), x);
+            });
+        }
+
+
     }
 
 

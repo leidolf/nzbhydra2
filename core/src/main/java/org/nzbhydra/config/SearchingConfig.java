@@ -5,7 +5,7 @@ import com.fasterxml.jackson.annotation.JsonFormat.Shape;
 import com.fasterxml.jackson.annotation.JsonSetter;
 import com.google.common.base.Strings;
 import lombok.Data;
-import org.nzbhydra.config.downloading.FileDownloadAccessType;
+import org.nzbhydra.indexers.QueryGenerator;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.util.ArrayList;
@@ -31,6 +31,8 @@ public class SearchingConfig extends ValidatingConfig<SearchingConfig> {
     private List<String> forbiddenWords = new ArrayList<>();
     private SearchSourceRestriction alwaysConvertIds = SearchSourceRestriction.NONE;
     private SearchSourceRestriction generateQueries = SearchSourceRestriction.INTERNAL;
+
+    private QueryGenerator.QueryFormat generateQueriesFormat = QueryGenerator.QueryFormat.TITLE;
     @JsonFormat(shape = Shape.STRING)
     private SearchSourceRestriction idFallbackToQueryGeneration = SearchSourceRestriction.NONE;
     private boolean ignorePassworded = false;
@@ -38,11 +40,11 @@ public class SearchingConfig extends ValidatingConfig<SearchingConfig> {
     private boolean ignoreLoadLimitingForInternalSearches = false;
     private int keepSearchResultsForDays = 3;
     private String language = "en";
+    private List<String> languagesToKeep = new ArrayList<>();
     private boolean loadAllCachedOnInternal;
     private int loadLimitInternal = 100;
     private Integer maxAge;
-    @JsonFormat(shape = Shape.STRING)
-    private FileDownloadAccessType nzbAccessType = FileDownloadAccessType.REDIRECT;
+    private Integer minSeeders;
     @JsonSetter()
     private List<String> removeTrailing = new ArrayList<>();
     private String requiredRegex;
@@ -100,15 +102,11 @@ public class SearchingConfig extends ValidatingConfig<SearchingConfig> {
             }
         }
 
-        if (newBaseConfig.getIndexers().stream().anyMatch(x -> x.getHost().toLowerCase().contains("nzbs.in")) && newConfig.getNzbAccessType() != FileDownloadAccessType.REDIRECT) {
-            warnings.add("nzbs.in requires special configurations to be made or your API account will be disabled. You should set the NZB access type in the searching config to \"Redirect to indexer\".");
-        }
-
         return new ConfigValidationResult(errors.isEmpty(), false, errors, warnings);
     }
 
     @Override
-    public SearchingConfig prepareForSaving() {
+    public SearchingConfig prepareForSaving(BaseConfig oldBaseConfig) {
         return this;
     }
 

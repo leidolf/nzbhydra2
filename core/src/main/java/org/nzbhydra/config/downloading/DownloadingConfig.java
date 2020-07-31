@@ -1,5 +1,5 @@
 /*
- *  (C) Copyright 2017 TheOtherP (theotherp@gmx.de)
+ *  (C) Copyright 2017 TheOtherP (theotherp@posteo.net)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -16,9 +16,12 @@
 
 package org.nzbhydra.config.downloading;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.google.common.base.Strings;
 import lombok.Data;
+import org.javers.core.metamodel.annotation.DiffIgnore;
 import org.nzbhydra.config.BaseConfig;
+import org.nzbhydra.config.SearchSourceRestriction;
 import org.nzbhydra.config.ValidatingConfig;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
@@ -33,11 +36,16 @@ import java.util.stream.Collectors;
 @ConfigurationProperties(prefix = "downloading")
 public class DownloadingConfig extends ValidatingConfig<DownloadingConfig> {
 
+    @DiffIgnore
     private List<DownloaderConfig> downloaders = new ArrayList<>();
     private String saveTorrentsTo;
+    private String saveNzbsTo;
     private boolean sendMagnetLinks;
     private boolean updateStatuses;
     private boolean showDownloaderStatus = true;
+    @JsonFormat(shape = JsonFormat.Shape.STRING)
+    private FileDownloadAccessType nzbAccessType = FileDownloadAccessType.REDIRECT;
+    private SearchSourceRestriction fallbackForFailed = SearchSourceRestriction.BOTH;
 
     @Override
     public ConfigValidationResult validateConfig(BaseConfig oldConfig, DownloadingConfig newConfig, BaseConfig newBaseConfig) {
@@ -61,7 +69,13 @@ public class DownloadingConfig extends ValidatingConfig<DownloadingConfig> {
         List<String> downloaderErrors = validationResults.stream().map(ConfigValidationResult::getErrorMessages).flatMap(Collection::stream).collect(Collectors.toList());
         errors.addAll(downloaderErrors);
 
-        List<String> warnings = validationResults.stream().map(ConfigValidationResult::getWarningMessages).flatMap(Collection::stream).collect(Collectors.toList());
+        List<String> warnings = new ArrayList<>();
+
+        if (newBaseConfig.getIndexers().stream().anyMatch(x -> x.getHost().toLowerCase().contains("nzbs.in")) && newConfig.getNzbAccessType() != FileDownloadAccessType.REDIRECT) {
+            warnings.add("nzbs.in requires special configurations to be made or your API account will be disabled. You should set the NZB access type in the downloading config to \"Redirect to indexer\".");
+        }
+
+        warnings.addAll(validationResults.stream().map(ConfigValidationResult::getWarningMessages).flatMap(Collection::stream).collect(Collectors.toList()));
 
         return new ConfigValidationResult(errors.isEmpty(), false, errors, warnings);
     }
@@ -70,8 +84,12 @@ public class DownloadingConfig extends ValidatingConfig<DownloadingConfig> {
         return Optional.ofNullable(Strings.emptyToNull(saveTorrentsTo));
     }
 
+    public Optional<String> getSaveNzbsTo() {
+        return Optional.ofNullable(saveNzbsTo);
+    }
+
     @Override
-    public DownloadingConfig prepareForSaving() {
+    public DownloadingConfig prepareForSaving(BaseConfig oldBaseConfig) {
         return this;
     }
 

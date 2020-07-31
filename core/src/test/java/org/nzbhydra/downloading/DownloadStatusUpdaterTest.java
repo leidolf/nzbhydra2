@@ -1,5 +1,5 @@
 /*
- *  (C) Copyright 2017 TheOtherP (theotherp@gmx.de)
+ *  (C) Copyright 2017 TheOtherP (theotherp@posteo.net)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -21,9 +21,12 @@ import org.junit.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.nzbhydra.config.BaseConfig;
+import org.nzbhydra.config.ConfigProvider;
 import org.nzbhydra.downloading.downloaders.Downloader;
 import org.nzbhydra.downloading.downloaders.Downloader.StatusCheckType;
 import org.nzbhydra.downloading.downloaders.DownloaderProvider;
+import org.nzbhydra.searching.db.SearchResultEntity;
 
 import java.time.Instant;
 import java.util.Collections;
@@ -42,22 +45,25 @@ public class DownloadStatusUpdaterTest {
     private FileDownloadRepository downloadRepository;
     @Mock
     private Downloader downloaderMock;
+    @Mock
+    private ConfigProvider configProvider;
 
     @InjectMocks
-    private DownloadStatusUpdater testee = new DownloadStatusUpdater();
+    private DownloadStatusUpdater testee;
 
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
         when(downloaderProvider.getAllDownloaders()).thenReturn(Collections.singletonList(downloaderMock));
         when(downloaderMock.isEnabled()).thenReturn(true);
+        when(configProvider.getBaseConfig()).thenReturn(new BaseConfig());
     }
 
     @Test
     public void shouldNotRunWhenNotEnabled() {
         testee.queueCheckEnabled = false;
         testee.lastDownload = Instant.now();
-        testee.checkStatus(Collections.singletonList(FileDownloadStatus.REQUESTED), 10000, StatusCheckType.HISTORY);
+        testee.checkStatus(Collections.singletonList(FileDownloadStatus.REQUESTED), 10000, StatusCheckType.QUEUE);
         verifyNoMoreInteractions(downloadRepository);
     }
 
@@ -101,7 +107,7 @@ public class DownloadStatusUpdaterTest {
         testee.queueCheckEnabled = false;
         testee.lastDownload = null;
 
-        testee.onNzbDownloadEvent(new FileDownloadEvent(null));
+        testee.onNzbDownloadEvent(new FileDownloadEvent(new FileDownloadEntity(), new SearchResultEntity()));
 
         assertThat(testee.queueCheckEnabled).isTrue();
         assertThat(testee.lastDownload).isNotNull();

@@ -1,5 +1,5 @@
 /*
- *  (C) Copyright 2017 TheOtherP (theotherp@gmx.de)
+ *  (C) Copyright 2017 TheOtherP (theotherp@posteo.net)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.base.Joiner;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import org.javers.core.metamodel.annotation.DiffIgnore;
 import org.nzbhydra.config.BaseConfig;
 import org.nzbhydra.config.RestartRequired;
 import org.nzbhydra.config.ValidatingConfig;
@@ -55,6 +56,7 @@ public class AuthConfig extends ValidatingConfig<AuthConfig> {
     private boolean restrictStats = false;
     private boolean allowApiStats = true;
 
+    @DiffIgnore
     private List<UserAuthConfig> users = new ArrayList<>();
 
     @JsonIgnore
@@ -98,8 +100,8 @@ public class AuthConfig extends ValidatingConfig<AuthConfig> {
     }
 
     @Override
-    public AuthConfig prepareForSaving() {
-        getUsers().forEach(ValidatingConfig::prepareForSaving);
+    public AuthConfig prepareForSaving(BaseConfig oldBaseConfig) {
+        getUsers().forEach(userAuthConfig -> userAuthConfig.prepareForSaving(oldBaseConfig));
         return this;
     }
 

@@ -3,11 +3,18 @@ angular
     .controller('SearchResultsController', SearchResultsController);
 
 //SearchResultsController.$inject = ['blockUi'];
-function SearchResultsController($stateParams, $scope, $q, $timeout, $document, blockUI, growl, localStorageService, SearchService, ConfigService, CategoriesService, DebugService, GenericStorageService, ModalService) {
+function SearchResultsController($stateParams, $scope, $q, $timeout, $document, blockUI, growl, localStorageService, SearchService, ConfigService, CategoriesService, DebugService, GenericStorageService, ModalService, $uibModal) {
     // console.time("Presenting");
     DebugService.log("foobar");
     $scope.limitTo = ConfigService.getSafe().searching.loadLimitInternal;
     $scope.offset = 0;
+
+    var indexerColors = {};
+
+    _.each(ConfigService.getSafe().indexers, function (indexer) {
+        indexerColors[indexer.name] = indexer.color;
+    });
+
     //Handle incoming data
 
     $scope.indexersearches = SearchService.getLastResults().indexerSearchMetaDatas;
@@ -121,7 +128,10 @@ function SearchResultsController($stateParams, $scope, $q, $timeout, $document, 
         sumGrabs: localStorageService.get("sumGrabs") !== null ? localStorageService.get("sumGrabs") : true,
         scrollToResults: localStorageService.get("scrollToResults") !== null ? localStorageService.get("scrollToResults") : true,
         showCovers: localStorageService.get("showCovers") !== null ? localStorageService.get("showCovers") : true,
-        groupEpisodes: localStorageService.get("groupEpisodes") !== null ? localStorageService.get("groupEpisodes") : true
+        groupEpisodes: localStorageService.get("groupEpisodes") !== null ? localStorageService.get("groupEpisodes") : true,
+        expandGroupsByDefault: localStorageService.get("expandGroupsByDefault") !== null ? localStorageService.get("expandGroupsByDefault") : false,
+        showDownloadedIndicator: localStorageService.get("showDownloadedIndicator") !== null ? localStorageService.get("showDownloadedIndicator") : true,
+        hideAlreadyDownloadedResults: localStorageService.get("hideAlreadyDownloadedResults") !== null ? localStorageService.get("hideAlreadyDownloadedResults") : true
     };
 
 
@@ -130,7 +140,10 @@ function SearchResultsController($stateParams, $scope, $q, $timeout, $document, 
     $scope.isShowFilterButtonsTv = $scope.isShowFilterButtons && $stateParams.category.toLowerCase().indexOf("tv") > -1;
 
     $scope.shared = {
-        isGroupEpisodes: $scope.foo.groupEpisodes && $stateParams.category.toLowerCase().indexOf("tv") > -1 && $stateParams.episode === undefined
+        isGroupEpisodes: $scope.foo.groupEpisodes && $stateParams.category.toLowerCase().indexOf("tv") > -1 && $stateParams.episode === undefined,
+        expandGroupsByDefault: $scope.foo.expandGroupsByDefault,
+        showDownloadedIndicator: $scope.foo.showDownloadedIndicator,
+        hideAlreadyDownloadedResults: $scope.foo.hideAlreadyDownloadedResults
     };
 
     if ($scope.shared.isGroupEpisodes) {
@@ -156,7 +169,10 @@ function SearchResultsController($stateParams, $scope, $q, $timeout, $document, 
         {id: "sumGrabs", label: "Use sum of grabs / seeders for filtering / sorting of groups"},
         {id: "scrollToResults", label: "Scroll to results when finished"},
         {id: "showCovers", label: "Show movie covers in results"},
-        {id: "groupEpisodes", label: "Group TV results by season/episode"}
+        {id: "groupEpisodes", label: "Group TV results by season/episode"},
+        {id: "expandGroupsByDefault", label: "Expand groups by default"},
+        {id: "showDownloadedIndicator", label: "Show already downloaded indicator"},
+        {id: "hideAlreadyDownloadedResults", label: "Hide already downloaded results"}
     ];
     $scope.optionsSelectedModel = [];
     for (var key in $scope.optionsOptions) {
@@ -182,9 +198,15 @@ function SearchResultsController($stateParams, $scope, $q, $timeout, $document, 
             } else if (item.id === "scrollToResults") {
                 toggleScrollToResults(newValue);
             } else if (item.id === "showCovers") {
-                toggleshowCovers(newValue);
+                toggleShowCovers(newValue);
             } else if (item.id === "groupEpisodes") {
-                togglesGroupEpisodes(newValue);
+                toggleGroupEpisodes(newValue);
+            } else if (item.id === "expandGroupsByDefault") {
+                toggleExpandGroups(newValue);
+            } else if (item.id === "showDownloadedIndicator") {
+                toggleDownloadedIndicator(newValue);
+            } else if (item.id === "hideAlreadyDownloadedResults") {
+                toggleHideAlreadyDownloadedResults(newValue);
             }
         }
     };
@@ -193,34 +215,62 @@ function SearchResultsController($stateParams, $scope, $q, $timeout, $document, 
         localStorageService.set("duplicatesDisplayed", value);
         $scope.$broadcast("duplicatesDisplayed", value);
         $scope.foo.duplicatesDisplayed = value;
+        $scope.shared.duplicatesDisplayed = value;
     }
 
     function toggleGroupTorrentAndNewznabResults(value) {
         localStorageService.set("groupTorrentAndNewznabResults", value);
         $scope.foo.groupTorrentAndNewznabResults = value;
+        $scope.shared.groupTorrentAndNewznabResults = value;
         blockAndUpdate();
     }
 
     function toggleSumGrabs(value) {
         localStorageService.set("sumGrabs", value);
         $scope.foo.sumGrabs = value;
+        $scope.shared.sumGrabs = value;
         blockAndUpdate();
     }
 
     function toggleScrollToResults(value) {
         localStorageService.set("scrollToResults", value);
         $scope.foo.scrollToResults = value;
+        $scope.shared.scrollToResults = value;
     }
 
-    function toggleshowCovers(value) {
+    function toggleShowCovers(value) {
         localStorageService.set("showCovers", value);
         $scope.foo.showCovers = value;
+        $scope.shared.showCovers = value;
         $scope.$broadcast("toggleShowCovers", value);
     }
 
-    function togglesGroupEpisodes(value) {
+    function toggleGroupEpisodes(value) {
         localStorageService.set("groupEpisodes", value);
         $scope.shared.isGroupEpisodes = value;
+        $scope.foo.isGroupEpisodes = value;
+        blockAndUpdate();
+    }
+
+    function toggleExpandGroups(value) {
+        localStorageService.set("expandGroupsByDefault", value);
+        $scope.shared.isExpandGroupsByDefault = value;
+        $scope.foo.isExpandGroupsByDefault = value;
+        blockAndUpdate();
+    }
+
+    function toggleDownloadedIndicator(value) {
+        localStorageService.set("showDownloadedIndicator", value);
+        $scope.shared.showDownloadedIndicator = value;
+        $scope.foo.showDownloadedIndicator = value;
+        blockAndUpdate();
+    }
+
+    function toggleHideAlreadyDownloadedResults(value) {
+        localStorageService.set("hideAlreadyDownloadedResults", value);
+        $scope.shared.hideAlreadyDownloadedResults = value;
+        $scope.foo.hideAlreadyDownloadedResults = value;
+        console.log("Bo")
         blockAndUpdate();
     }
 
@@ -267,7 +317,6 @@ function SearchResultsController($stateParams, $scope, $q, $timeout, $document, 
     function blockAndUpdate() {
         startBlocking("Sorting / filtering...").then(function () {
             $scope.filteredResults = sortAndFilter(allSearchResults);
-            //stopBlocking();
             localStorageService.set("sorting", sortModel);
         });
     }
@@ -425,7 +474,7 @@ function SearchResultsController($stateParams, $scope, $q, $timeout, $document, 
                 }
             }
             if ($scope.filterButtonsModel.quality !== null && !_.isEmpty($scope.filterButtonsModel.quality)) {
-                var containsAtLeastOne = false;
+                containsAtLeastOne = false;
                 var anyRequired = false;
                 _.each($scope.filterButtonsModel.quality, function (value, key) { //key is something like 'q720p', value is true or false
                     anyRequired = anyRequired || value;
@@ -434,6 +483,10 @@ function SearchResultsController($stateParams, $scope, $q, $timeout, $document, 
                     }
                 });
                 return !anyRequired || containsAtLeastOne;
+            }
+
+            if ($scope.foo.hideAlreadyDownloadedResults && item.downloadedAt !== null) {
+                return false;
             }
 
             return true;
@@ -482,8 +535,7 @@ function SearchResultsController($stateParams, $scope, $q, $timeout, $document, 
                     //Sorting a title group internally by title doesn't make sense so fall back to sorting by age so that newest result is at the top
                     return ((10000000000 * hashGroup[0]["indexerscore"]) + hashGroup[0]["epoch"]) * -1;
                 }
-                var sortPredicateValue = getSortPredicateValue(hashGroup[0]);
-                return sortPredicateValue;
+                return getSortPredicateValue(hashGroup[0]);
             }
 
             var grouped = _.groupBy(titleGroup, "hash");
@@ -513,6 +565,14 @@ function SearchResultsController($stateParams, $scope, $q, $timeout, $document, 
             return sortPredicateValue
         }
 
+        _.each(results, function (result) {
+            var indexerColor = indexerColors[result.indexer];
+            if (indexerColor === undefined || indexerColor === null) {
+                return "";
+            }
+            console.log(indexerColor);
+            result.style = "background-color: " + indexerColor.replace("rgb", "rgba").replace(")", ",0.5)")
+        });
 
         var filtered = _.filter(results, filter);
         var newSelected = $scope.selected;
@@ -684,6 +744,7 @@ function SearchResultsController($stateParams, $scope, $q, $timeout, $document, 
         }
     };
 
+
     $scope.$on("checkboxClicked", function (event, originalEvent, rowIndex, newCheckedValue, clickTargetElement) {
         if (originalEvent.shiftKey && $scope.lastClickedRowIndex !== null) {
             $scope.$broadcast("shiftClick", Number($scope.lastClickedRowIndex), Number(rowIndex), Number($scope.lastClickedValue), $scope.lastClickedElement, clickTargetElement);
@@ -750,6 +811,11 @@ function SearchResultsController($stateParams, $scope, $q, $timeout, $document, 
         }, 1);
     });
 
+    $scope.getBgColorForResult = function (result) {
+        console.log(result.indexer);
+        return "background-color: red";
+    }
+
     $timeout(function () {
         DebugService.print();
     }, 3000);
@@ -798,4 +864,3 @@ function SearchResultsController($stateParams, $scope, $q, $timeout, $document, 
     }, $scope.limitTo);
 
 }
-

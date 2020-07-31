@@ -1,5 +1,5 @@
 /*
- *  (C) Copyright 2017 TheOtherP (theotherp@gmx.de)
+ *  (C) Copyright 2017 TheOtherP (theotherp@posteo.net)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -109,7 +109,7 @@ public class CategoriesConfig extends ValidatingConfig<CategoriesConfig> {
     }
 
     @Override
-    public CategoriesConfig prepareForSaving() {
+    public CategoriesConfig prepareForSaving(BaseConfig oldBaseConfig) {
         return this;
     }
 

@@ -1,5 +1,5 @@
 /*
- *  (C) Copyright 2017 TheOtherP (theotherp@gmx.de)
+ *  (C) Copyright 2017 TheOtherP (theotherp@posteo.net)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -46,8 +46,8 @@ public class DownloadStatusUpdater {
     private static final int MIN_SECONDS_SINCE_LAST_DOWNLOAD_TO_CHECK_STATUSES = 6 * 60 * 60; //No download should last longer than 6 hours
 
     protected Instant lastDownload = Instant.now();
-    protected boolean queueCheckEnabled = false;
-    protected boolean historyCheckEnabled = false;
+    protected boolean queueCheckEnabled = true;
+    protected boolean historyCheckEnabled = true;
 
     protected static final Logger logger = LoggerFactory.getLogger(DownloadStatusUpdater.class);
 

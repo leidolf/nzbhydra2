@@ -1,5 +1,5 @@
 /*
- *  (C) Copyright 2017 TheOtherP (theotherp@gmx.de)
+ *  (C) Copyright 2017 TheOtherP (theotherp@posteo.net)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -44,6 +44,7 @@ import java.util.stream.Collectors;
 public class IndexerStatusesAndLimits {
 
     private static final DateTimeFormatter DATE_PATTERN = DateTimeFormatter.ofPattern("dd.MM.yyyy-HH:mm:ss:SSS");
+    private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
     @Autowired
     private ConfigProvider configProvider;
@@ -73,6 +74,8 @@ public class IndexerStatusesAndLimits {
         indexerStatus.setState(x.getState().name());
         indexerStatus.setLevel(x.getDisabledLevel());
         indexerStatus.setDisabledUntil(x.getDisabledUntil() == null ? null : Instant.ofEpochMilli(x.getDisabledUntil()));
+        indexerStatus.setVipExpirationDate(x.getVipExpirationDate() == null ? null : DATE_TIME_FORMATTER.format(x.getVipExpirationDate()));
+        indexerStatus.setLastError(x.getLastError());
 
         setLimitRelatedValues(x, indexerStatus);
 
@@ -162,6 +165,7 @@ public class IndexerStatusesAndLimits {
         private Integer apiHitLimit;
         private Integer downloadHits;
         private Integer downloadHitLimit;
+        private String vipExpirationDate;
 
     }
 

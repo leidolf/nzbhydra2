@@ -8,6 +8,7 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
+import org.javers.core.metamodel.annotation.DiffIgnore;
 import org.nzbhydra.NzbHydra;
 import org.nzbhydra.ShutdownEvent;
 import org.nzbhydra.config.auth.AuthConfig;
@@ -58,10 +59,12 @@ public class BaseConfig extends ValidatingConfig<BaseConfig> {
     private AuthConfig auth = new AuthConfig();
     private CategoriesConfig categoriesConfig = new CategoriesConfig();
     private DownloadingConfig downloading = new DownloadingConfig();
+    @DiffIgnore
     private List<IndexerConfig> indexers = new ArrayList<>();
     private MainConfig main = new MainConfig();
     private SearchingConfig searching = new SearchingConfig();
 
+    @DiffIgnore
     private Map<String, String> genericStorage = new HashMap<>();
 
     @JsonIgnore
@@ -82,6 +85,7 @@ public class BaseConfig extends ValidatingConfig<BaseConfig> {
     public void replace(BaseConfig newConfig) {
         replace(newConfig, true);
     }
+
 
     private void replace(BaseConfig newConfig, boolean fireConfigChangedEvent) {
         BaseConfig oldBaseConfig = configReaderWriter.getCopy(this);
@@ -202,6 +206,24 @@ public class BaseConfig extends ValidatingConfig<BaseConfig> {
             configValidationResult.setRestartNeeded(configValidationResult.isRestartNeeded() || indexerValidation.isRestartNeeded());
         }
 
+        validateIndexers(newConfig, configValidationResult);
+        if (!configValidationResult.getErrorMessages().isEmpty()) {
+            logger.warn("Config validation returned errors:\n" + Joiner.on("\n").join(configValidationResult.getErrorMessages()));
+        }
+        if (!configValidationResult.getWarningMessages().isEmpty()) {
+            logger.warn("Config validation returned warnings:\n" + Joiner.on("\n").join(configValidationResult.getWarningMessages()));
+        }
+
+        if (configValidationResult.isRestartNeeded()) {
+            logger.warn("Settings were changed that require a restart to become effective");
+        }
+
+        configValidationResult.setOk(configValidationResult.getErrorMessages().isEmpty());
+
+        return configValidationResult;
+    }
+
+    private void validateIndexers(BaseConfig newConfig, ConfigValidationResult configValidationResult) {
         if (!newConfig.getIndexers().isEmpty()) {
             if (newConfig.getIndexers().stream().noneMatch(x -> x.getState() == IndexerConfig.State.ENABLED)) {
                 configValidationResult.getWarningMessages().add("No indexers enabled. Searches will return empty results");
@@ -225,33 +247,41 @@ public class BaseConfig extends ValidatingConfig<BaseConfig> {
                 configValidationResult.getErrorMessages().add("Duplicate indexer names found: " + Joiner.on(", ").join(duplicateIndexerNames));
             }
 
+
+            final Set<Set<String>> indexersSameHostAndApikey = new HashSet<>();
+
+            for (IndexerConfig indexer : newConfig.getIndexers()) {
+                final Set<String> otherIndexersSameHostAndApiKey = newConfig.getIndexers().stream()
+                        .filter(x -> x != indexer)
+                        .filter(x -> IndexerConfig.isIndexerEquals(x, indexer))
+                        .map(IndexerConfig::getName)
+                        .collect(Collectors.toSet());
+                if (!otherIndexersSameHostAndApiKey.isEmpty()) {
+                    otherIndexersSameHostAndApiKey.add(indexer.getName());
+                    if (indexersSameHostAndApikey.stream().noneMatch(x -> x.contains(indexer.getName()))) {
+                        indexersSameHostAndApikey.add(otherIndexersSameHostAndApiKey);
+                        final String message = "Found multiple indexers with same host and API key: " + Joiner.on(", ").join(otherIndexersSameHostAndApiKey);
+                        logger.warn(message);
+                        configValidationResult.getWarningMessages().add(message);
+                    }
+                }
+            }
+
         } else {
             configValidationResult.getWarningMessages().add("No indexers configured. You won't get any results");
         }
-        if (!configValidationResult.getErrorMessages().isEmpty()) {
-            logger.warn("Config validation returned errors:\n" + Joiner.on("\n").join(configValidationResult.getErrorMessages()));
-        }
-        if (!configValidationResult.getWarningMessages().isEmpty()) {
-            logger.warn("Config validation returned warnings:\n" + Joiner.on("\n").join(configValidationResult.getWarningMessages()));
-        }
-
-        if (configValidationResult.isRestartNeeded()) {
-            logger.warn("Settings were changed that require a restart to become effective");
-        }
-
-        configValidationResult.setOk(configValidationResult.getErrorMessages().isEmpty());
-
-        return configValidationResult;
     }
 
     @Override
-    public BaseConfig prepareForSaving() {
-        getCategoriesConfig().prepareForSaving();
-        getDownloading().prepareForSaving();
-        getSearching().prepareForSaving();
-        getMain().prepareForSaving();
-        getMain().getLogging().prepareForSaving();
-        getAuth().prepareForSaving();
+    public BaseConfig prepareForSaving(BaseConfig oldBaseConfig) {
+        getCategoriesConfig().prepareForSaving(oldBaseConfig);
+        getDownloading().prepareForSaving(oldBaseConfig);
+        getSearching().prepareForSaving(oldBaseConfig);
+        getMain().prepareForSaving(oldBaseConfig);
+        getMain().getLogging().prepareForSaving(oldBaseConfig);
+        getAuth().prepareForSaving(oldBaseConfig);
+        getIndexers().forEach(indexerConfig -> indexerConfig.prepareForSaving(oldBaseConfig));
+
         return this;
     }
 

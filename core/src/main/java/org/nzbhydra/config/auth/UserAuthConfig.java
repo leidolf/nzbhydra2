@@ -1,5 +1,5 @@
 /*
- *  (C) Copyright 2017 TheOtherP (theotherp@gmx.de)
+ *  (C) Copyright 2017 TheOtherP (theotherp@posteo.net)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ public class UserAuthConfig extends ValidatingConfig<UserAuthConfig> {
     }
 
     @Override
-    public UserAuthConfig prepareForSaving() {
+    public UserAuthConfig prepareForSaving(BaseConfig oldBaseConfig) {
         if (password != null && !password.startsWith(PASSWORD_ID)) {
             password = PASSWORD_ID + password;
         }

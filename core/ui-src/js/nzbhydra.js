@@ -5,7 +5,7 @@ var nzbhydraapp = angular.module('nzbhydraApp', ['angular-loading-bar', 'cgBusy'
     'angular.filter', 'filters', 'ui.router', 'blockUI', 'mgcrea.ngStrap', 'angularUtils.directives.dirPagination',
     'nvd3', 'formly', 'formlyBootstrap', 'frapontillo.bootstrap-switch', 'ui.select', 'ngSanitize', 'checklist-model',
     'ngAria', 'ngMessages', 'ui.router.title', 'LocalStorageModule', 'angular.filter', 'ngFileUpload', 'ngCookies', 'angular.chips',
-    'templates', 'base64', 'duScroll']);
+    'templates', 'base64', 'duScroll', 'colorpicker.module']);
 
 nzbhydraapp.config(['$compileProvider', function ($compileProvider) {
     $compileProvider.debugInfoEnabled(true);
@@ -213,7 +213,6 @@ angular.module('nzbhydraApp').config(function ($stateProvider, $urlRouterProvide
                     controller: function ($scope, $state) {
                         $scope.$state = $state;
                         $scope.bootstrapped = bootstrapped;
-                        console.log(bootstrapped);
                     },
                     resolve: {
                         loginRequired: ['$q', '$timeout', '$state', 'HydraAuthService', function ($q, $timeout, $state, HydraAuthService) {
@@ -330,6 +329,9 @@ angular.module('nzbhydraApp').config(function ($stateProvider, $urlRouterProvide
                         activeTab: [function () {
                             return 0;
                         }],
+                        simpleInfos: function () {
+                            return null;
+                        },
                         $title: function ($stateParams) {
                             return "System"
                         }
@@ -353,6 +355,9 @@ angular.module('nzbhydraApp').config(function ($stateProvider, $urlRouterProvide
                         activeTab: [function () {
                             return 1;
                         }],
+                        simpleInfos: function () {
+                            return null;
+                        },
                         $title: function ($stateParams) {
                             return "System (Updates)"
                         }
@@ -376,6 +381,9 @@ angular.module('nzbhydraApp').config(function ($stateProvider, $urlRouterProvide
                         activeTab: [function () {
                             return 2;
                         }],
+                        simpleInfos: function () {
+                            return null;
+                        },
                         $title: function ($stateParams) {
                             return "System (Log)"
                         }
@@ -399,6 +407,9 @@ angular.module('nzbhydraApp').config(function ($stateProvider, $urlRouterProvide
                         activeTab: [function () {
                             return 3;
                         }],
+                        simpleInfos: function () {
+                            return null;
+                        },
                         $title: function ($stateParams) {
                             return "System (Tasks)"
                         }
@@ -422,6 +433,9 @@ angular.module('nzbhydraApp').config(function ($stateProvider, $urlRouterProvide
                         activeTab: [function () {
                             return 4;
                         }],
+                        simpleInfos: function () {
+                            return null;
+                        },
                         $title: function ($stateParams) {
                             return "System (Backup)"
                         }
@@ -445,6 +459,9 @@ angular.module('nzbhydraApp').config(function ($stateProvider, $urlRouterProvide
                         activeTab: [function () {
                             return 5;
                         }],
+                        simpleInfos: function () {
+                            return null;
+                        },
                         $title: function ($stateParams) {
                             return "System (Bug report)"
                         }
@@ -468,6 +485,9 @@ angular.module('nzbhydraApp').config(function ($stateProvider, $urlRouterProvide
                         activeTab: [function () {
                             return 6;
                         }],
+                        simpleInfos: function () {
+                            return null;
+                        },
                         $title: function ($stateParams) {
                             return "System (News)"
                         }
@@ -487,6 +507,15 @@ angular.module('nzbhydraApp').config(function ($stateProvider, $urlRouterProvide
                         }],
                         safeConfig: ['loginRequired', 'ConfigService', function (loginRequired, ConfigService) {
                             return ConfigService.getSafe();
+                        }],
+                        simpleInfos: ['$http', 'RequestsErrorHandler', function ($http, RequestsErrorHandler) {
+                            return RequestsErrorHandler.specificallyHandled(function () {
+                                return $http.get("internalapi/updates/simpleInfos").then(
+                                    function (response) {
+                                        return response.data;
+                                    }
+                                );
+                            });
                         }],
                         activeTab: [function () {
                             return 7;

@@ -1,5 +1,5 @@
 /*
- *  (C) Copyright 2017 TheOtherP (theotherp@gmx.de)
+ *  (C) Copyright 2017 TheOtherP (theotherp@posteo.net)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -79,8 +79,8 @@ public class WrapperHashesGeneratorMojo extends AbstractMojo {
     }
 
     private void hashFile(Map<String, String> filenamesToHashCodes, File file) throws IOException {
-        HashCode hashCode = Files.asByteSource(file).hash(Hashing.crc32());
-        filenamesToHashCodes.put(file.getName(), hashCode.toString());
+        HashCode hash = Files.hash(file, Hashing.sha1());
+        filenamesToHashCodes.put(file.getName(), hash.toString());
     }
 
     private void checkWrapperFilesExist(File wrapperFile1) throws MojoExecutionException {

@@ -1,5 +1,5 @@
 /*
- *  (C) Copyright 2017 TheOtherP (theotherp@gmx.de)
+ *  (C) Copyright 2017 TheOtherP (theotherp@posteo.net)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -79,26 +79,28 @@ public class OutdatedWrapperDetector implements ProblemDetector {
         }
         for (String filename : wrapperFilenames) {
             File wrapperFile = new File(filename);
+            boolean outdatedWrapperFound = false;
             if (wrapperFile.exists()) {
                 try {
-                    HashCode hash = Files.hash(wrapperFile, Hashing.crc32());
-                    if (!filenamesToExpectedHashes.get(filename).equals(hash.toString())) {
-                        String key = "outdatedWrapper-" + hash.toString();
-                        boolean alreadyDetected = genericStorage.get(key, String.class).isPresent();
-                        if (!alreadyDetected) {
-                            logger.warn("Detected outdated wrapper. Please make sure you update your wrapper (i.e. the executables or python file you use to start NZBHydra): Shut down NZBHydra, download the latest version from GitHub and extract it into your main NZBHydra folder. Start NZBHydra again.");
-                            genericStorage.save(key, true);
-                            genericStorage.save(KEY_OUTDATED_WRAPPER_DETECTED, true);
-                            genericStorage.save(KEY_OUTDATED_WRAPPER_DETECTED_WARNING_DISPLAYED, false);
-                            //Finding any outdated wrapper is enough.
-                            return;
-                        }
+                    HashCode hash = Files.hash(wrapperFile, Hashing.sha1());
+                    final String expectedHash = filenamesToExpectedHashes.get(filename);
+                    final String actualHash = hash.toString();
+                    if (!expectedHash.equals(actualHash)) {
+                        logger.warn("Outdated file: {}. Expected hash: {}. Actual hash: {}", wrapperFile, expectedHash, actualHash);
+                        outdatedWrapperFound = true;
+
                     }
                 } catch (IOException e) {
                     logger.error("Unable to hash file " + wrapperFile, e);
-                    return;
                 }
-                genericStorage.save(KEY_OUTDATED_WRAPPER_DETECTED, false);
+                if (outdatedWrapperFound) {
+                    genericStorage.save(KEY_OUTDATED_WRAPPER_DETECTED_WARNING_DISPLAYED, false);
+                    genericStorage.save(KEY_OUTDATED_WRAPPER_DETECTED, true);
+                    logger.warn("The NZBHydra wrappers (i.e. the executables or python scripts you use to run NZBHydra) seem to be outdated. Please update them:\n" +
+                            "Shut down NZBHydra, download the latest version and extract *all files* into your main NZBHydra folder (overwriting all). Start NZBHydra again.");
+                } else {
+                    genericStorage.save(KEY_OUTDATED_WRAPPER_DETECTED, false);
+                }
             }
         }
     }

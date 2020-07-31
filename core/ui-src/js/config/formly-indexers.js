@@ -1,5 +1,5 @@
 /*
- *  (C) Copyright 2017 TheOtherP (theotherp@gmx.de)
+ *  (C) Copyright 2017 TheOtherP (theotherp@posteo.net)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -13,6 +13,28 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
+
+function regexValidator(regex, message, prefixViewValue, preventEmpty) {
+    return {
+        expression: function ($viewValue, $modelValue) {
+            var value = $modelValue || $viewValue;
+            if (value) {
+                if (Array.isArray(value)) {
+                    for (var i = 0; i < value.length; i++) {
+                        if (!regex.test(value[i])) {
+                            return false;
+                        }
+                    }
+                    return true;
+                } else {
+                    return regex.test(value);
+                }
+            }
+            return !preventEmpty;
+        },
+        message: (prefixViewValue ? '$viewValue + " ' : '" ') + message + '"'
+    };
+}
 
 function getIndexerBoxFields(indexerModel, parentModel, isInitial, CategoriesService) {
     var fieldset = [];
@@ -63,8 +85,7 @@ function getIndexerBoxFields(indexerModel, parentModel, isInitial, CategoriesSer
                 templateOptions: {
                     type: 'text',
                     label: 'Name',
-                    required: true,
-                    help: 'Used for identification.' + (isInitial ? '' : ' Changing the name will lose all history and stats!')
+                    required: true
                 },
                 validators: {
                     uniqueName: {
@@ -137,6 +158,21 @@ function getIndexerBoxFields(indexerModel, parentModel, isInitial, CategoriesSer
                 templateOptions: {
                     type: 'text',
                     label: 'API Key'
+                }
+            }
+        )
+    }
+
+    if (indexerModel.searchModuleType === 'NEWZNAB' || indexerModel.searchModuleType === 'TORZNAB' || indexerModel.searchModuleType === 'JACKETT_CONFIG') {
+        fieldset.push(
+            {
+                key: 'username',
+                type: 'horizontalInput',
+                templateOptions: {
+                    type: 'text',
+                    required: false,
+                    label: 'Username',
+                    help: 'Only needed if indexer requires HTTP auth for API access (rare).'
                 },
                 watcher: {
                     listener: function (field, newValue, oldValue, scope) {
@@ -144,6 +180,19 @@ function getIndexerBoxFields(indexerModel, parentModel, isInitial, CategoriesSer
                             scope.$parent.needsConnectionTest = true;
                         }
                     }
+                }
+            }
+        );
+        fieldset.push(
+            {
+                key: 'password',
+                type: 'passwordSwitch',
+                hideExpression: '!model.username',
+                templateOptions: {
+                    type: 'text',
+                    required: false,
+                    label: 'Password',
+                    help: 'Only needed if indexer requires HTTP auth for API access (rare).'
                 }
             }
         )
@@ -158,7 +207,9 @@ function getIndexerBoxFields(indexerModel, parentModel, isInitial, CategoriesSer
                     type: 'number',
                     label: 'Priority',
                     required: true,
-                    help: 'When duplicate search results are found the result from the indexer with the highest number will be selected.'
+                    help: 'When duplicate search results are found the result from the indexer with the highest number will be selected.',
+                    tooltip: 'The priority determines which indexer is used if duplicate results are found (i.e. results that link to the same upload, not just results with the same name).<br>The result from the indexer with the highest number is shown first in the GUI and returned for API searches.'
+
                 }
             });
     }
@@ -170,6 +221,7 @@ function getIndexerBoxFields(indexerModel, parentModel, isInitial, CategoriesSer
             templateOptions: {
                 type: 'number',
                 label: 'Timeout',
+                min: 1,
                 help: 'Supercedes the general timeout in "Searching".'
             }
         },
@@ -192,7 +244,8 @@ function getIndexerBoxFields(indexerModel, parentModel, isInitial, CategoriesSer
                 templateOptions: {
                     type: 'number',
                     label: 'API hit limit',
-                    help: 'Maximum number of API hits since "API hit reset time".'
+                    help: 'Maximum number of API hits since "API hit reset time".',
+                    tooltip: 'When the maximum number of API hits is reached the indexer isn\'t used anymore. Only API hits done by NZBHydra are taken into account.'
                 },
                 validators: {
                     greaterThanZero: {
@@ -231,7 +284,8 @@ function getIndexerBoxFields(indexerModel, parentModel, isInitial, CategoriesSer
                 templateOptions: {
                     type: 'number',
                     label: 'Hit reset time',
-                    help: 'UTC hour of day at which the API hit counter is reset (0-23). Leave empty for a rolling reset counter.'
+                    help: 'UTC hour of day at which the API hit counter is reset (0-23). Leave empty for a rolling reset counter.',
+                    tooltip: 'Either define the time of day when the counter is reset by the indexer or leave it empty to use a rolling reset counter, meaning the number of hits for the last 24 at the time of the search is limited.'
                 },
                 validators: {
                     timeOfDay: {
@@ -249,7 +303,8 @@ function getIndexerBoxFields(indexerModel, parentModel, isInitial, CategoriesSer
                 templateOptions: {
                     type: 'number',
                     label: 'Load limiting',
-                    help: 'If set indexer will only be picked for one out of x API searches (on average).'
+                    help: 'If set indexer will only be picked for one out of x API searches (on average).',
+                    tooltip: 'For indexers with a low API hit limit you can enable load limiting. Define any number n so that the indexer will only be used for searches in 1/n cases (on average). For example if you define a load limit of 5 the indexer will only be picked every fifth search.'
                 },
                 validators: {
                     greaterThanZero: {
@@ -263,39 +318,16 @@ function getIndexerBoxFields(indexerModel, parentModel, isInitial, CategoriesSer
             }
         );
     }
-    if (indexerModel.searchModuleType === 'NEWZNAB' || indexerModel.searchModuleType === 'TORZNAB' || indexerModel.searchModuleType === 'JACKETT_CONFIG') {
-        fieldset.push(
-            {
-                key: 'username',
-                type: 'horizontalInput',
-                templateOptions: {
-                    type: 'text',
-                    required: false,
-                    label: 'Username',
-                    help: 'Only needed if indexer requires HTTP auth for API access (rare).'
-                },
-                watcher: {
-                    listener: function (field, newValue, oldValue, scope) {
-                        if (newValue !== oldValue) {
-                            scope.$parent.needsConnectionTest = true;
-                        }
-                    }
-                }
+    if (indexerModel.searchModuleType === 'TORZNAB') {
+        fieldset.push({
+            key: 'minSeeders',
+            type: 'horizontalInput',
+            templateOptions: {
+                type: 'number',
+                label: 'Minimum # seeders',
+                help: 'Torznab results with fewer seeders will be ignored. Supercedes any setting made in the searching config.'
             }
-        );
-        fieldset.push(
-            {
-                key: 'password',
-                type: 'passwordSwitch',
-                hideExpression: '!model.username',
-                templateOptions: {
-                    type: 'text',
-                    required: false,
-                    label: 'Password',
-                    help: 'Only needed if indexer requires HTTP auth for API access (rare).'
-                }
-            }
-        )
+        })
     }
 
     if (indexerModel.searchModuleType === 'NEWZNAB') {
@@ -344,6 +376,32 @@ function getIndexerBoxFields(indexerModel, parentModel, isInitial, CategoriesSer
         }
     );
 
+    fieldset.push(
+        {
+            key: 'color',
+            type: 'colorInput',
+            templateOptions: {
+                label: 'Color',
+                help: 'If set it will be used in the search results to mark the indexer\'s results.'
+            }
+        }
+    );
+
+    fieldset.push(
+        {
+            key: 'vipExpirationDate',
+            type: 'horizontalInput',
+            templateOptions: {
+                required: false,
+                label: 'VIP expiry',
+                help: 'Enter when your VIP access expires and NZBHydra will track it and warn you when close to expiry. Enter as YYYY-MM-DD.'
+            },
+            validators: {
+                port: regexValidator(/^\d{4}\-\d{2}\-\d{2}$/, "is no valid date (must be YYYY-MM-DD)", true, false)
+            }
+        }
+    );
+
     if (indexerModel.searchModuleType !== "ANIZB" && indexerModel.searchModuleType !== 'JACKETT_CONFIG') {
         var cats = CategoriesService.getWithoutAll();
         var options = _.map(cats, function (x) {
@@ -365,6 +423,7 @@ function getIndexerBoxFields(indexerModel, parentModel, isInitial, CategoriesSer
             }
         );
     }
+
 
     if ((indexerModel.searchModuleType === 'NEWZNAB' || indexerModel.searchModuleType === 'TORZNAB') && !isInitial && indexerModel.searchModuleType !== 'JACKETT_CONFIG') {
         fieldset.push(
@@ -396,6 +455,7 @@ function getIndexerBoxFields(indexerModel, parentModel, isInitial, CategoriesSer
                         {label: 'Audio', id: 'AUDIO'},
                         {label: 'Ebooks', id: 'BOOK'},
                         {label: 'Movies', id: 'MOVIE'},
+                        {label: 'Search', id: 'SEARCH'},
                         {label: 'TV', id: 'TVSEARCH'}
                     ],
                     buttonText: "None"
@@ -408,7 +468,8 @@ function getIndexerBoxFields(indexerModel, parentModel, isInitial, CategoriesSer
                 hideExpression: '!model.host || !model.name',
                 templateOptions: {
                     label: 'Check capabilities',
-                    help: 'Find out what search types and IDs the indexer supports. Done automatically for new indexers.'
+                    help: 'Find out what search types and IDs the indexer supports.',
+                    tooltip: 'The first time an indexer is added the connection is tested. When successful the supported search IDs and types are checked. These determine if indexers allow searching for movies, shows or ebooks using meta data like the IMDB id or the author and title. Newznab indexers cannot be used until this check was completed. Click this button to execute the caps check again.'
                 }
             }
         )
@@ -566,6 +627,7 @@ angular.module('nzbhydraApp').controller('IndexerConfigSelectionBoxInstanceContr
             allCapsChecked: false,
             apiKey: null,
             backend: 'NEWZNAB',
+            color: null,
             configComplete: false,
             categoryMapping: null,
             downloadLimit: null,
@@ -960,7 +1022,7 @@ function IndexerCheckBeforeCloseService($q, ModalService, IndexerConfigBoxServic
 
     function checkBeforeClose(scope, model) {
         var deferred = $q.defer();
-        if (model.searchModuleType !== 'JACKETT_CONFIG') {
+        if (model.searchModuleType === 'JACKETT_CONFIG') {
             deferred.resolve(model);
         } else if (!scope.isInitial && (!scope.needsConnectionTest || scope.form.capsChecked)) {
             checkCapsWhenClosing(scope, model).then(function () {

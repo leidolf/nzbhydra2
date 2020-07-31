@@ -1,5 +1,5 @@
 /*
- *  (C) Copyright 2017 TheOtherP (theotherp@gmx.de)
+ *  (C) Copyright 2017 TheOtherP (theotherp@posteo.net)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -64,10 +64,12 @@ public class HydraTaskScheduler implements BeanPostProcessor, SmartInitializingS
     private Map<String, TaskRuntimeInformation> runtimeInformationMap = new HashMap<>();
     private ConcurrentMap<HydraTask, TaskInformation> taskInformations = new ConcurrentHashMap<>();
     private Map<String, ScheduledFuture> taskSchedules = new HashMap<>();
+    private boolean shutdownRequested;
 
     @EventListener
     public void onShutdown(ShutdownEvent event) {
         taskSchedules.values().forEach(x -> x.cancel(false));
+        shutdownRequested = true;
     }
 
     private void scheduleTasks() {
@@ -82,10 +84,13 @@ public class HydraTaskScheduler implements BeanPostProcessor, SmartInitializingS
             logger.info("Scheduling task \"{}\" to be run every {}", task.name(), DurationFormatUtils.formatDurationWords(getIntervalForTask(task), true, true));
         }
         Runnable runnable = () -> {
-            Thread.currentThread().setName("HydraTask - " + task.name());
+            if (shutdownRequested) {
+                return;
+            }
+            Thread.currentThread().setName("HT-" + task.name());
             new ScheduledMethodRunnable(runtimeInformation.getBean(), runtimeInformation.getMethod()).run();
         };
-        if (runNow) {
+        if (runNow && !shutdownRequested) {
             scheduler.execute(runnable);
         }
         ScheduledFuture scheduledTask = scheduler.schedule(runnable, new Trigger() {

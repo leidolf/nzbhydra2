@@ -1,3 +1,283 @@
+### v2.25.0 (2020-07-02)
+
+**Feature** When creating debug infos log all changes made to the config.
+
+**Feature** Show dl/ul ratio indicator for torznab results (if not 100%). E.g. when '50%' is shown only half the download's size will be counted towards your ratio. Freelech torrents will be shown as such.
+
+
+
+### v2.24.1 (2020-06-29)
+
+**Fix** Generate query for book searches if enabled and book search not supported by indexer.
+
+**Fix** Autofocus search input field (pretty sure that worked at some point).
+
+**Fix** Catch illegal characters in hostname when configuring sabnzbd.
+
+
+
+### v2.24.0 BETA (2020-06-22)
+
+**Note** I've upgraded some of the libraries I used. This should ideally not change anything but to be sure I'll release this as prerelase first.
+
+**Fix** Remove API keys in URL encoded log entries.
+
+
+
+### v2.23.0 (2020-06-03)
+
+**Feature** Double-click system tray icon to open GUI in browser.
+
+**Feature** Click downloader image in footer to open it in a new tab.
+
+**Feature** Add toggle to display options for search result groups being expanded by default.
+
+**Feature** Add toggle to display options for the indicator of already downloaded results.
+
+**Feature** Add toggle to display options to control display of already downloaded results. It's basically a filter.
+
+
+
+### v2.22.5 (2020-05-27)
+
+**Fix** Indexers which report the API and download limits were not properly selected when the hit limit was reached but the latest hit was more than 24 hours ago.
+
+**Fix** Error while searching Animetosho.
+
+**Fix** Properly recognize ID based searches returning too many results.
+
+
+
+### v2.22.4 (2020-05-24)
+
+**Fix** Fix problem with torznab introduced in last version (looking at me again, in this case).
+
+
+
+### v2.22.3 (2020-05-24)
+
+**Fix** Fix problem with paging introduced in last version (looking at me, in this case).
+
+
+
+### v2.22.2 (2020-05-20)
+
+**Feature** Add refresh buttons to search and download history.
+
+**Fix** Properly handle indexers which report more results in an API response than they actually return (looking at you, wtfnzbs).
+
+
+
+### v2.22.1 (2020-05-13)
+
+**Fix** Last release was broken a bit...
+
+
+
+### v2.22.0 (2020-05-13)
+
+**Feature** Add filter for minimum # of seeders (in general and per tracker).
+
+**Fix** It appears that the hashing algorithm used to check for the outdated wrapper files behaves differently on some machines / OSes. I switched to SHA1 which should reduce false positives. If you still get the wrapper warning and really updated all files let me know.
+
+**Fix** Made sure that torznab results are never considered duplicates to anything. It could be argued that in some cases two torrents from public trackers may actually be the same but I consider that an edge case.
+
+
+
+### v2.21.1 (2020-05-09)
+
+**Feature** Make instructions what to update when your wrapper is outdated extra clear: Any wrapper file found in the folder must be updated, not just the one you're using to run hydra. If the message says to extract the ZIP into your nzbhydra folder I mean ALL THE FILES.
+
+**Note** I moved my mail address from theotherp@gmx.de to theotherp@posteo.net.
+
+
+
+### v2.21.0 (2020-05-08)
+
+**Feature** NZBHydra will now try to fall back to similar results when an NZB download fails. This is only possible if it proxies the results instead of redirecting to the indexer so I've made that the default *for new installs*. It works by looking for results with the same title from other indexers which were found in the same search as the result of which the download failed.
+
+**Fix** Covers were not shown for search results.
+
+**Fix** Fix layout of tooltip icons ("?") in config in safari browser.
+
+
+
+### v2.20.7 (2020-05-07)
+
+**Fix** Execute check of outdated wrapper on startup to properly detect updated wrapper.
+
+**Fix** Fix some more layout issues.
+
+
+
+### v2.20.6 (2020-05-07)
+
+**Fix** Revert tool to compile python wrapper to exe to older version as new exe files were (falsely!) recognized as a virus by *some* tools. To be clear, the files were never problematic. That means you'll have update the exe files or python scripts again.
+
+**Fix** Fix decoding issue of settings file by python3 wrapper.
+
+
+
+### v2.20.5 (2020-05-06)
+
+**Feature** Mark results in GUI that already have been downloaded.
+
+**Fix** Fix issue with notification about outdated wrapper files not being shown. NZBHydra will now nag you until you refresh the files.
+
+**Fix** Revert layout fixes made in v2.20.4 because fuck CSS.
+
+
+
+### v2.20.4 (2020-05-06)
+
+**Feature** GC logging (for debugging of memory issues) is now configurable and disabled by default. This has required a change in the wrapper which means you'll have to manually update them if you're running NZBHydra on windows or are using the linux executable.
+
+**Feature** Show current version and (if applicable) docker container infos on about page.
+
+**Fix** Fix parsing of API limits from indexers' API responses using different formats.
+
+**Fix** Don't show news for fresh installs.
+
+**Fix** Fix some (minor) layout issues on the search page.
+
+
+
+### v2.20.3 (2020-05-01)
+
+**Feature** NZBHydra will recognize renamed indexers when saving the config. Renaming will no longer cause loss of stats and history for those indexers. You should have two indexers configured with the same host, API key and search type as this messes with the rename detection.
+
+**Feature** Click covers in search results to show them in a pop-up.
+
+**Fix** In some cases the download history could not be opened.
+
+
+
+### v2.20.2 (2020-04-29)
+
+**Feature** Added more substructures to the config GUI to make it a bit more clear.
+
+**Feature** Replaced the config help pop-up pages with contextual help. Click the question marks neach to each field to get a bit more in-depth info.
+
+**Feature** Add button to clear search input.
+
+**Fix** Automatic update notification was also shown for manual updates.
+
+
+
+### v2.20.1 (2020-04-28)
+
+**Feature** Add button to debug infos tab to list all HTTP endpoints (useful for reverse proxy config).
+
+**Fix** Search type SEARCH wasn't displayed in indexer config.
+
+**Fix** Improve matching of indexer configs when reading jackett config.
+
+**Fix** Restore display of button to send torrents to black hole.
+
+**Fix** Try to fix circular loading error when creating backup.
+
+
+
+### v2.20.0 (2020-04-26)
+
+**Feature** Option to filter out results by language. Very few indexers provide the language in the results, though.
+
+**Feature** You can now add self-signed certificates for any hosts you want to connect to. Just create a folder named 'certificates' inside the data folder, put your .crt files there and reload NZBHydra.
+
+**Feature** Option to disable SSL verification for local hosts. (This was on by default so far).
+
+**Feature** Support for saving NZBs to a black hole.
+
+**Fix** Fix sorting by age in download history.
+
+**Fix** NZBGet connection didn't honor SSL verification settings.
+
+**Fix** Properly display last errror on indexer statuses page.
+
+**Fix** Fix parsing of binsearch date on non-english locales.
+
+**Fix** Properly recognize duplicate NZBs not added to sabNZBd.
+
+**Fix** Improve matching of downloads to downloader entries where no external ID exists, i.e. those downloads resulting from API accesses.
+
+**Fix** When using NZBGet the wrong NZB would be shown as downloading if the first entry in the queue wasn't the one downloading.
+
+**Fix** Handle errors better while adding torrents to black hole or sending magnet links.
+
+**Fix** Filter out quotation marks (") when searching NZBGeek.
+
+**Note** I've added two settings for the database. Just ignore them unless told otherwise ;-)
+
+
+
+### v2.19.6 (2020-04-23)
+
+**Fix** With v2.15.0 I added the option to configure the backup folder and changed the path from being relative to the data folder to being relative to the main folder. That's not compatible with docker containers and broke the backup but I always insisted it wasn't my fault - it was, sorry.
+
+
+
+### v2.19.5 (2020-04-20)
+
+**Fix** Indexer caps check was not executed when adding a new indexer.
+
+**Note** Happy 420. Stay inside. Stay healthy. Sorry for all the bugfix releases...
+
+
+
+### v2.19.4 (2020-04-20)
+
+**Fix** Fix error while reading API limits response from indexers which don't report oldest access time.
+
+
+
+### v2.19.3 (2020-04-20)
+
+**Fix** Fix error when searching torznab.
+
+
+
+### v2.19.2 (2020-04-20)
+
+**Fix** Fix error related to fallback.
+
+
+
+### v2.19.1 (2020-04-20)
+
+**Feature** Add debug output for determination of API/download limits.
+
+**Fix** Corectly parse API/download limit information from NNTmux.
+
+
+
+### v2.19.0 BETA (2020-04-19)
+
+**Feature** Add option to set VIP expiry date for an indexer. You will be warned when the expiry date is near or has been reached.
+
+
+
+### v2.18.0 BETA (2020-04-19)
+
+**Feature** Added option to define a color for an indexer. Results from that indexer will be marked using that color.
+
+**Fix** Some indexers apparently return all results for ID based searches when actually no results were found. In this case it will be handled as if no results were found.
+
+**Fix** Adjust width of title box in search form when displaying results.
+
+**Fix** Fallback to query generation was often not executed when it should've.
+
+
+
+### v2.17.6 (2020-04-17)
+
+**Fix** Fix passworded releases not being included for a certain indexer.
+
+**Note** Added logging to debug query generation fallback.
+
+**Note** Added thank-you to newsgroup.ninja for sponsoring me.
+
+
+
 ### v2.17.5 (2020-04-05)
 
 **Fix** Fix copy & paste error introduced with last version.
